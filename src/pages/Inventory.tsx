@@ -214,6 +214,7 @@ function BatchTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
   const ordered = [...groups.values()].map((g) => g.sort(sortFEFO))
     .sort((a, b) => sortFEFO(a[0], b[0]) || byId.get(a[0].itemId)!.name.localeCompare(byId.get(b[0].itemId)!.name));
   const batches = ordered.flat();
+  const band = new Map(ordered.map((g, i) => [g[0].itemId, i % 2 === 1]));
 
   if (!batches.length) return <div className="card"><Empty title={t('inventory.batches.emptyTitle')}>{t('inventory.batches.emptyBody')}</Empty></div>;
 
@@ -221,7 +222,7 @@ function BatchTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
     <div className="card">
       <div className="card-head"><h2>{t('inventory.batches.heading')}</h2><span className="muted">{t('inventory.batches.sortHint')}</span></div>
       <div className="table-wrap">
-        <table className="table">
+        <table className="table grouped">
           <thead>
             <tr><th>{t('inventory.col.item')}</th><th>{t('inventory.col.lot')}</th><th>{t('inventory.col.received')}</th><th>{t('inventory.col.expires')}</th><th className="num">{t('inventory.col.remaining')}</th><th className="num">{t('inventory.col.unitCost')}</th><th className="num">{t('inventory.col.value')}</th><th /></tr>
           </thead>
@@ -235,7 +236,7 @@ function BatchTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
               const last = idx === batches.length - 1 || batches[idx + 1].itemId !== b.itemId;
               const pos = group.indexOf(b);
               return (
-                <tr key={b.id} className={`batch-row ${first ? 'group-first' : 'group-rest'} ${last ? 'group-last' : ''}`}>
+                <tr key={b.id} className={`batch-row ${first ? 'group-first' : 'group-rest'} ${last ? 'group-last' : ''} ${band.get(b.itemId) ? 'band' : ''}`}>
                   <td>
                     {first ? (
                       <div className="cell-thumb">

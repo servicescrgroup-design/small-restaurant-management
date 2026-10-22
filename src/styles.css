@@ -35,6 +35,8 @@
   --shadow-lg: 0 30px 70px -20px rgba(10, 40, 30, 0.35);
   --blur: blur(22px) saturate(170%);
   --input-bg: rgba(255, 255, 255, 0.7);
+  --zebra: rgba(20, 110, 80, 0.055);
+  --row-hover: rgba(20, 147, 106, 0.1);
 
   --r-sm: 10px;
   --r: 16px;
@@ -79,6 +81,8 @@
   --shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
   --input-bg: rgba(255, 255, 255, 0.06);
+  --zebra: rgba(255, 255, 255, 0.045);
+  --row-hover: rgba(52, 211, 153, 0.1);
   color-scheme: dark;
 }
 
@@ -197,7 +201,13 @@ textarea { resize: vertical; min-height: 64px; }
 .table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 650; padding: 8px 10px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
 .table td { padding: 11px 10px; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
 .table tbody tr { transition: background 0.12s; }
-.table tbody tr:hover { background: var(--glass-soft); }
+/* Zebra stripes so each row is easy to follow across wide tables */
+.table tbody tr:nth-child(even) { background: var(--zebra); }
+.table tbody tr:hover { background: var(--row-hover); }
+/* Grouped tables stripe by group (set per row), not by row */
+.table.grouped tbody tr:nth-child(even) { background: none; }
+.table.grouped tbody tr.band { background: var(--zebra); }
+.table.grouped tbody tr:hover { background: var(--row-hover); }
 .table tbody tr:last-child td { border-bottom: 0; }
 .table tfoot td { font-weight: 650; border-bottom: 0; border-top: 1px solid var(--hairline); }
 .table.compact td { padding: 7px 8px; }
@@ -370,7 +380,6 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
 /* ---------- Batch groups ---------- */
 .table tbody tr.batch-row td { border-bottom: 0; }
 .table tbody tr.batch-row.group-last td { border-bottom: 1px solid var(--hairline); }
-.table tbody tr.batch-row.group-rest { background: var(--glass-soft); }
 .table tbody tr.batch-row.group-rest td:first-child { padding-left: 22px; }
 .batch-child { color: var(--muted); font-size: 13.5px; font-weight: 600; }
 
