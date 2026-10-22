@@ -39,6 +39,7 @@ export const defaultSettings = (): Settings => ({
   inventoryCategories: ['Protein', 'Produce', 'Dairy', 'Bakery', 'Dry goods', 'Beverage', 'Prep', 'Supplies'],
   storageLocations: ['Walk-in cooler', 'Freezer', 'Dry storage', 'Line cooler'],
   paymentMethods: ['Cash', 'Card', 'Mobile pay', 'Gift card'],
+  paymentFees: {},
   receiptFooter: 'Thank you — come again!',
   nextOrderNumber: 1001,
   autoLockMinutes: 5,
@@ -109,6 +110,7 @@ export function demoState(): AppState {
     inventoryCategories: Object.values(C),
     storageLocations: [FR, FZ, DRY, PREP],
     paymentMethods: [L('Cash', 'เงินสด'), L('PromptPay QR', 'พร้อมเพย์ QR'), L('Card', 'บัตร'), 'LINE MAN / Grab'],
+    paymentFees: { [L('Card', 'บัตร')]: { pct: 3, fixed: 0 } },
     receiptFooter: L('Thank you — see you again! ขอบคุณค่ะ', 'ขอบคุณที่อุดหนุนค่ะ แล้วพบกันใหม่'),
   };
 

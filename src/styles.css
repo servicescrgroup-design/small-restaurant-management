@@ -514,3 +514,4 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
   .receipt { position: absolute; left: 0; top: 0; border: 0; }
   .modal-backdrop { background: none; backdrop-filter: none; }
 }
+.fee-box { padding: 10px 12px; border-radius: 14px; border: 1px dashed var(--hairline); background: var(--glass-soft); }

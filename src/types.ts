@@ -15,10 +15,19 @@ export interface Settings {
   inventoryCategories: string[];
   storageLocations: string[];
   paymentMethods: string[];
+  /** Automatic transaction charge per payment method, added to the bill (e.g. Card: 3%) */
+  paymentFees: Record<string, PaymentFee>;
   receiptFooter: string;
   nextOrderNumber: number;
   /** Lock the app after this many idle minutes (0 = never) */
   autoLockMinutes: number;
+}
+
+export interface PaymentFee {
+  /** Percent of the bill */
+  pct: number;
+  /** Flat amount per transaction */
+  fixed: number;
 }
 
 export type StaffRole = 'owner' | 'staff';
@@ -186,6 +195,10 @@ export interface Order {
   voidedBy?: string;
   tableName?: string;
   guests?: number;
+  /** Transaction charge added at checkout (included in total) */
+  surcharge?: number;
+  /** What the charge was, e.g. "3%" or "฿10" */
+  surchargeLabel?: string;
 }
 
 export type AdjReason = 'received' | 'prep-used' | 'prep-made' | 'waste' | 'expired' | 'count';

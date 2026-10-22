@@ -244,7 +244,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
     onSwitch(null);
   };
 
-  const complete = (payment: string, tip: number, tendered?: number) => {
+  const complete = (payment: string, tip: number, tendered: number | undefined, fee: number, feeLabel?: string) => {
     const order: Order = {
       id: uid(), number: s.nextOrderNumber, createdAt: new Date().toISOString(), type: ticket.type,
       lines: ticket.lines.filter((l) => menuById.has(l.menuItemId)).map((l) => {
@@ -252,7 +252,8 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
         const dish = resolveDish(m, l.choices);
         return { menuItemId: m.id, name: m.name, options: dish.label || undefined, note: l.note, price: dish.price, qty: l.qty, unitCost: 0, recipe: dish.recipe };
       }),
-      subtotal, discount, tax, tip, total: round(due + tip), payment, tendered, status: 'paid', note: ticket.note.trim() || undefined,
+      subtotal, discount, tax, tip, total: round(due + tip + fee), payment, tendered, status: 'paid', note: ticket.note.trim() || undefined,
+      ...(fee > 0 ? { surcharge: fee, surchargeLabel: feeLabel } : {}),
       staffId: ticket.staffId ?? user?.id, staffName: ticket.staffName ?? user?.name,
       tableName: table?.name, guests: table ? ticket.guests : undefined,
     };
@@ -582,7 +583,7 @@ function EditTablesModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PayModal({ due, net, onClose, onComplete }: { due: number; net: number; onClose: () => void; onComplete: (payment: string, tip: number, tendered?: number) => void }) {
+function PayModal({ due, net, onClose, onComplete }: { due: number; net: number; onClose: () => void; onComplete: (payment: string, tip: number, tendered: number | undefined, fee: number, feeLabel?: string) => void }) {
   const { state, money } = useStore();
   const { t } = useI18n();
   const methods = state.settings.paymentMethods.length ? state.settings.paymentMethods : ['Cash', 'Card'];
@@ -590,9 +591,20 @@ function PayModal({ due, net, onClose, onComplete }: { due: number; net: number;
   const [tipPct, setTipPct] = useState<number | 'custom'>(0);
   const [customTip, setCustomTip] = useState(0);
   const [tendered, setTendered] = useState(0);
+  // Transaction charge: 'auto' follows the method's setting, 'manual' is typed in, 'none' is removed for this sale
+  const [feeMode, setFeeMode] = useState<'auto' | 'manual' | 'none'>('auto');
+  const [feeType, setFeeType] = useState<'%' | 'amt'>('%');
+  const [feeValue, setFeeValue] = useState(0);
+  const [editingFee, setEditingFee] = useState(false);
   const isCash = isCashMethod(method);
   const tip = round(tipPct === 'custom' ? customTip : (net * tipPct) / 100);
-  const total = round(due + tip);
+  const auto = state.settings.paymentFees?.[method];
+  const autoFee = auto ? round((due * auto.pct) / 100 + auto.fixed) : 0;
+  const fee = feeMode === 'none' ? 0 : feeMode === 'manual' ? round(feeType === '%' ? (due * feeValue) / 100 : feeValue) : autoFee;
+  const feeLabel = feeMode === 'manual'
+    ? (feeType === '%' ? `${feeValue}%` : money(feeValue))
+    : auto ? [auto.pct ? `${auto.pct}%` : '', auto.fixed ? money(auto.fixed) : ''].filter(Boolean).join(' + ') : '';
+  const total = round(due + tip + fee);
   const quick = [...new Set([total, Math.ceil(total / 5) * 5, Math.ceil(total / 10) * 10, Math.ceil(total / 20) * 20, Math.ceil(total / 100) * 100, Math.ceil(total / 500) * 500, 1000])]
     .filter((v) => v >= total).slice(0, 4);
   const short = isCash && tendered < total;
@@ -602,12 +614,12 @@ function PayModal({ due, net, onClose, onComplete }: { due: number; net: number;
     <Modal
       title={t('pos.charge', { amount: money(total) })}
       onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>{t('common.back')}</button><button className="btn primary lg" disabled={short} onClick={() => onComplete(method, tip, isCash ? tendered : undefined)}>{t('pos.completeSale')}</button></>}
+      footer={<><button className="btn" onClick={onClose}>{t('common.back')}</button><button className="btn primary lg" disabled={short} onClick={() => onComplete(method, tip, isCash ? tendered : undefined, fee, fee > 0 ? feeLabel : undefined)}>{t('pos.completeSale')}</button></>}
     >
       <Field label={t('pos.paymentMethod')}>
         <div className="pay-methods">
           {methods.map((m) => (
-            <button key={m} className={method === m ? 'active' : ''} onClick={() => setMethod(m)}>
+            <button key={m} className={method === m ? 'active' : ''} onClick={() => { setMethod(m); if (feeMode === 'none') setFeeMode('auto'); }}>
               <span className="pay-icon" aria-hidden>{icon(m)}</span>{m}
             </button>
           ))}
@@ -620,6 +632,29 @@ function PayModal({ due, net, onClose, onComplete }: { due: number; net: number;
         </div>
       </Field>
       {tipPct === 'custom' && <Field label={t('pos.tipAmount')}><NumInput autoFocus value={customTip} onChange={setCustomTip} /></Field>}
+      <div className="fee-box">
+        {editingFee ? (
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <span className="field-label nowrap">{t('pos.fee')}</span>
+            <div className="seg">
+              <button className={feeType === '%' ? 'active' : ''} onClick={() => setFeeType('%')}>%</button>
+              <button className={feeType === 'amt' ? 'active' : ''} onClick={() => setFeeType('amt')}>{money(0).replace(/[\d.,\s]/g, '') || '$'}</button>
+            </div>
+            <NumInput autoFocus style={{ flex: 1, width: 'auto' }} value={feeValue} onChange={(n) => { setFeeValue(n); setFeeMode('manual'); }} />
+            <button className="btn sm primary" onClick={() => setEditingFee(false)}>{t('pos.feeDone')}</button>
+          </div>
+        ) : fee > 0 ? (
+          <div className="row">
+            <span>💳 {t('pos.fee')} <span className="muted">({feeLabel}{feeMode === 'auto' ? ` · ${t('pos.feeAuto')}` : ''})</span></span>
+            <span className="spacer" />
+            <strong>{money(fee)}</strong>
+            <button className="btn sm ghost" onClick={() => { setFeeType(auto && !auto.pct ? 'amt' : '%'); setFeeValue(auto ? (auto.pct || auto.fixed) : 0); setEditingFee(true); }}>{t('common.edit')}</button>
+            <button className="btn sm ghost danger" onClick={() => setFeeMode('none')}>{t('common.remove')}</button>
+          </div>
+        ) : (
+          <button className="btn sm ghost" onClick={() => { setFeeMode('manual'); setFeeType('%'); setFeeValue(auto?.pct || 3); setEditingFee(true); }}>{t('pos.addFee')}</button>
+        )}
+      </div>
       {isCash && (
         <>
           <Field label={t('pos.cashReceived')}><NumInput value={tendered} onChange={setTendered} /></Field>
@@ -630,6 +665,7 @@ function PayModal({ due, net, onClose, onComplete }: { due: number; net: number;
       <div className="result-box">
         <div className="kv"><span>{t('pos.orderTotal')}</span><span>{money(due)}</span></div>
         {tip > 0 && <div className="kv"><span>{t('pos.tip')}</span><span>{money(tip)}</span></div>}
+        {fee > 0 && <div className="kv"><span>{t('pos.fee')} ({feeLabel})</span><span>{money(fee)}</span></div>}
         <div className="kv"><strong>{t('pos.chargeLabel')}</strong><strong>{money(total)}</strong></div>
       </div>
     </Modal>

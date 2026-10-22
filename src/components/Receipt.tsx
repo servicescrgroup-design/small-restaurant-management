@@ -32,6 +32,7 @@ export function Receipt({ order }: { order: Order }) {
       {order.discount > 0 && <div className="r-row"><span>{t('common.receipt.discount')}</span><span>−{money(order.discount)}</span></div>}
       <div className="r-row"><span>{t('common.receipt.tax', { rate: s.taxRate })}</span><span>{money(order.tax)}</span></div>
       {order.tip > 0 && <div className="r-row"><span>{t('common.receipt.tip')}</span><span>{money(order.tip)}</span></div>}
+      {!!order.surcharge && <div className="r-row"><span>{t('common.receipt.fee', { label: order.surchargeLabel ?? '' })}</span><span>{money(order.surcharge)}</span></div>}
       <div className="r-row" style={{ fontWeight: 800, fontSize: 15 }}><span>{t('common.receipt.total')}</span><span>{money(order.total)}</span></div>
       <div className="r-row"><span>{t('common.receipt.paid', { method: order.payment })}</span><span>{money(order.tendered ?? order.total)}</span></div>
       {order.tendered != null && order.tendered > order.total && (

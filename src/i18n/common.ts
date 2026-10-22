@@ -134,6 +134,7 @@ export default defineMessages(
     'receipt.tip': 'Tip',
     'receipt.total': 'TOTAL',
     'receipt.paid': 'Paid · {method}',
+    'receipt.fee': 'Transaction charge ({label})',
     'receipt.change': 'Change',
   },
   {
@@ -261,6 +262,7 @@ export default defineMessages(
     'receipt.tip': 'ทิป',
     'receipt.total': 'ยอดรวมทั้งสิ้น',
     'receipt.paid': 'ชำระด้วย {method}',
+    'receipt.fee': 'ค่าธรรมเนียม ({label})',
     'receipt.change': 'เงินทอน',
   },
 );
