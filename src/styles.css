@@ -383,6 +383,26 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
 .table tbody tr.batch-row.group-rest td:first-child { padding-left: 22px; }
 .batch-child { color: var(--muted); font-size: 13.5px; font-weight: 600; }
 
+/* ---------- Import ---------- */
+.import-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+.import-source { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 14px; border-radius: 18px; border: 2px solid var(--glass-border); background: var(--glass-strong); cursor: pointer; color: var(--text); box-shadow: var(--highlight); }
+.import-source span:last-child { font-size: 13px; color: var(--muted); }
+.import-source.active { border-color: var(--accent); background: var(--accent-soft); }
+.import-logo { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; font-weight: 900; color: #fff; margin-bottom: 4px; background: linear-gradient(135deg, #8a9a93, #5f6d66); }
+.import-source.wongnai .import-logo { background: linear-gradient(135deg, #ff6b6b, #e5283a); }
+.import-source.foodstory .import-logo { background: linear-gradient(135deg, #ffb340, #f08a00); }
+.import-steps { margin: 0 0 14px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.import-steps a.btn { flex-shrink: 0; text-decoration: none; }
+.import-or { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 13px; }
+.import-or::before, .import-or::after { content: ''; flex: 1; border-top: 1px solid var(--hairline); }
+.file-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 28px 16px; border: 2px dashed var(--hairline); border-radius: 18px; background: var(--glass-soft); cursor: pointer; text-align: center; }
+.file-drop.over, .file-drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+.file-drop-icon { font-size: 2rem; }
+.import-columns { margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+.import-col { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.import-col select { width: auto; min-width: 120px; padding: 6px 8px; }
+.import-options { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-top: 14px; }
+
 /* ---------- Stock sections ---------- */
 .stock-section h2 .count { font-weight: 600; font-size: 0.95rem; }
 .stock-section.ready { border-color: var(--accent-soft); background: linear-gradient(180deg, var(--accent-soft), transparent 140px), var(--glass); }

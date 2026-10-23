@@ -116,10 +116,12 @@ export function Field({ label, hint, children, className = '' }: { label: string
 
 /** Numeric text input that tolerates partial typing like "0." */
 export function NumInput({ value, onChange, ...rest }: { value: number; onChange: (n: number) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>) {
-  const [text, setText] = useState(String(value ?? ''));
+  // With a placeholder, 0 shows as an empty box so the hint is visible
+  const show = (v: number) => (v === 0 && rest.placeholder ? '' : String(v ?? ''));
+  const [text, setText] = useState(show(value));
   useEffect(() => {
     const n = parseFloat(text);
-    if ((isNaN(n) ? 0 : n) !== value) setText(String(value));
+    if ((isNaN(n) ? 0 : n) !== value) setText(show(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
   return (

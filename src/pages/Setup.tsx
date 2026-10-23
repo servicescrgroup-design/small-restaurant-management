@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import ImportTab from './ImportTab';
 import type { Page } from '../App';
 import { useStore } from '../store';
 import { demoState, emptyState } from '../demo';
@@ -8,7 +9,7 @@ import type { AppState, Settings, Staff, StaffRole } from '../types';
 import { localDate, uid } from '../utils';
 import { getLocale, useI18n } from '../i18n';
 
-type Tab = 'start' | 'store' | 'staff' | 'lists' | 'data';
+type Tab = 'start' | 'store' | 'import' | 'staff' | 'lists' | 'data';
 
 export default function Setup({ go }: { go: (p: Page) => void }) {
   const { t } = useI18n();
@@ -26,6 +27,7 @@ export default function Setup({ go }: { go: (p: Page) => void }) {
           tabs={[
             { id: 'start', label: t('setup.tab.start') },
             { id: 'store', label: t('setup.tab.store') },
+            { id: 'import', label: `⇪ ${t('importer.tab')}` },
             { id: 'staff', label: t('setup.tab.staff') },
             { id: 'lists', label: t('setup.tab.lists') },
             { id: 'data', label: t('setup.tab.data') },
@@ -34,6 +36,7 @@ export default function Setup({ go }: { go: (p: Page) => void }) {
       </div>
       {tab === 'start' && <GettingStarted go={go} setTab={setTab} />}
       {tab === 'store' && <StoreInfo />}
+      {tab === 'import' && <ImportTab />}
       {tab === 'staff' && <StaffTab />}
       {tab === 'lists' && <Lists />}
       {tab === 'data' && <DataTab />}
