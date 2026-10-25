@@ -5,6 +5,7 @@ import { useAccount } from '../account';
 import { useI18n } from '../i18n';
 import { changePassword, cloudEnabled, deleteBusiness, renameBusiness } from '../cloud';
 import { Field, Pill } from '../components/ui';
+import { PlanCard } from '../components/Billing';
 import { fmtDate, localDate } from '../utils';
 
 /** The signed-in business: who owns it, sync status, password, switching, and deleting. */
@@ -83,6 +84,7 @@ function CloudAccount() {
 
   return (
     <div className="grid cols-2" style={{ alignItems: 'start' }}>
+      <PlanCard />
       <div className="card">
         <div className="card-head"><h2>🏪 {t('account.business')}</h2><Pill tone="info">{t(`account.role.${business.role}`)}</Pill></div>
         <div className="form-grid">

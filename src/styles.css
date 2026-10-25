@@ -549,3 +549,28 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
 .biz-item > span:last-child { display: flex; flex-direction: column; }
 .kv-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .danger-zone { border-color: var(--bad-soft); }
+
+/* ---------- Sign up / pricing / trial ---------- */
+.signup-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; width: min(920px, 100%); align-items: stretch; }
+.signup-layout .lock-card { width: auto; }
+.pricing-panel { background: linear-gradient(160deg, var(--accent-soft), transparent 70%), var(--glass); }
+.trial-badge { align-self: flex-start; padding: 6px 14px; border-radius: 999px; font-weight: 800; background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: #fff; }
+:root[data-theme='dark'] .trial-badge { color: var(--accent-ink); }
+.plan-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.plan-card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 18px; border: 2px solid var(--glass-border); background: var(--glass-strong); box-shadow: var(--highlight); }
+.plan-card.best { border-color: var(--accent); }
+.plan-card.current { background: var(--accent-soft); }
+.plan-name { font-weight: 700; color: var(--muted); }
+.plan-price { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; }
+.plan-price small { font-size: 0.95rem; font-weight: 600; color: var(--muted); }
+.plan-tag { position: absolute; top: -11px; right: 12px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--warn); color: #fff; }
+.feature-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.auth-switch { margin: 0; text-align: center; font-size: 14px; color: var(--muted); }
+.auth-switch a, .link-sm { color: var(--accent); font-weight: 650; text-decoration: none; }
+.link-sm { font-size: 13px; }
+.trial-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; padding: 9px 14px; margin-bottom: 14px; border-radius: var(--r); background: var(--accent-soft); color: var(--accent); font-weight: 650; border: 1px solid var(--glass-border); }
+.trial-banner.urgent { background: var(--warn-soft); color: var(--warn); }
+.trial-ended { max-width: 640px; margin: 40px auto; text-align: center; display: flex; flex-direction: column; gap: 12px; }
+.trial-ended .plan-cards { text-align: left; }
+.trial-ended-icon { font-size: 2.6rem; }
+@media (max-width: 760px) { .signup-layout { grid-template-columns: 1fr; } }

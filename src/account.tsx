@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
-  cloudEnabled, createBusiness, getSession, listBusinesses, onAuthChange, sendPasswordReset, signIn, signOut, signUp, type BusinessSummary,
+  cloudEnabled, createBusiness, getSession, listBusinesses, loadSubscription, onAuthChange, sendPasswordReset, signIn, signOut, signUp,
+  watchSubscription, type BusinessSummary,
 } from './cloud';
+import { accessOf, PLANS, TRIAL_DAYS, YEARLY_SAVING, type Subscription } from './plans';
 import { cloudBackend, localBackend, normalize, readLocalData, StoreProvider } from './store';
 import { LangSwitch, useI18n } from './i18n';
 import { ThemeSwitch } from './theme';
@@ -22,6 +24,9 @@ interface AccountCtx {
   switchBusiness: (id: string | null) => void;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Trial / plan for this business (null while loading or if it couldn't be read) */
+  subscription: Subscription | null;
+  access: ReturnType<typeof accessOf>;
 }
 
 const Ctx = createContext<AccountCtx | null>(null);
@@ -63,6 +68,19 @@ function CloudGate({ children }: { children: ReactNode }) {
   const business = bizId === '' ? undefined : businesses?.find((b) => b.id === bizId) ?? (businesses?.length === 1 ? businesses[0] : undefined);
   const backend = useMemo(() => (business ? cloudBackend(business.id) : null), [business?.id]);
 
+  // Trial / plan, kept live so paying on one device unlocks the others
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!business) return;
+    let alive = true;
+    const load = () => loadSubscription(business.id).then((s) => alive && setSubscription(s));
+    void load();
+    const stop = watchSubscription(business.id, () => void load());
+    const timer = window.setInterval(() => setTick((n) => n + 1), 60 * 60_000); // re-check days left hourly
+    return () => { alive = false; stop(); window.clearInterval(timer); };
+  }, [business?.id]);
+
   if (session === undefined) return <div className="loading">{t('common.loading')}</div>;
   if (!session) return <AuthScreen />;
   if (error) return <Screen><div className="callout bad">{error}</div><button className="btn" onClick={() => void refresh()}>{t('common.retry')}</button></Screen>;
@@ -71,7 +89,7 @@ function CloudGate({ children }: { children: ReactNode }) {
   if (!business || !backend) return <PickBusiness businesses={businesses} onPick={switchBusiness} onSignOut={doSignOut} onCreated={async (id) => { await refresh(); switchBusiness(id); }} email={session.user.email ?? ''} />;
 
   return (
-    <Ctx.Provider value={{ session, business, businesses, switchBusiness, refresh, signOut: doSignOut }}>
+    <Ctx.Provider value={{ session, business, businesses, switchBusiness, refresh, signOut: doSignOut, subscription, access: accessOf(subscription) }}>
       <StoreProvider key={business.id} backend={backend}>{children}</StoreProvider>
     </Ctx.Provider>
   );
@@ -94,16 +112,25 @@ function Screen({ children, wide }: { children: ReactNode; wide?: boolean }) {
   );
 }
 
-function AuthScreen() {
-  const { t } = useI18n();
-  const [mode, setMode] = useState<'in' | 'up' | 'reset'>('in');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [password2, setPassword2] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ tone: 'bad' | 'ok' | 'info'; text: string } | null>(null);
+type AuthPage = 'login' | 'signup' | 'reset';
+const pageFromHash = (): AuthPage => (/signup|register/.test(window.location.hash) ? 'signup' : /reset|forgot/.test(window.location.hash) ? 'reset' : 'login');
 
-  const errorText = (e: unknown) => {
+/** Separate pages with their own links: …/#login (existing customers) and …/#signup (new businesses). */
+function AuthScreen() {
+  const [page, setPage] = useState<AuthPage>(pageFromHash);
+  useEffect(() => {
+    const onHash = () => setPage(pageFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const go = (p: AuthPage) => { window.location.hash = p; setPage(p); };
+  if (page === 'signup') return <SignUpPage go={go} />;
+  return <SignInPage go={go} reset={page === 'reset'} />;
+}
+
+function useAuthErrors() {
+  const { t } = useI18n();
+  return (e: unknown) => {
     const m = String((e as { message?: string })?.message ?? e);
     if (/invalid login/i.test(m)) return t('account.err.badLogin');
     if (/not confirmed/i.test(m)) return t('account.err.notConfirmed');
@@ -113,20 +140,26 @@ function AuthScreen() {
     if (/fetch|network/i.test(m)) return t('account.err.network');
     return m;
   };
+}
+
+function SignInPage({ go, reset }: { go: (p: AuthPage) => void; reset: boolean }) {
+  const { t } = useI18n();
+  const errorText = useAuthErrors();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'bad' | 'ok'; text: string } | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    if (mode === 'up' && password !== password2) return setMsg({ tone: 'bad', text: t('account.err.mismatch') });
     setBusy(true);
     try {
-      if (mode === 'in') await signIn(email.trim(), password);
-      else if (mode === 'up') {
-        const { needsConfirm } = await signUp(email.trim(), password);
-        if (needsConfirm) setMsg({ tone: 'ok', text: t('account.checkEmail', { email: email.trim() }) });
-      } else {
+      if (reset) {
         await sendPasswordReset(email.trim());
         setMsg({ tone: 'ok', text: t('account.resetSent', { email: email.trim() }) });
+      } else {
+        await signIn(email.trim(), password);
       }
     } catch (err) {
       setMsg({ tone: 'bad', text: errorText(err) });
@@ -137,39 +170,104 @@ function AuthScreen() {
 
   return (
     <Screen>
-      <h1>{mode === 'in' ? t('account.signInTitle') : mode === 'up' ? t('account.signUpTitle') : t('account.resetTitle')}</h1>
-      <p className="muted">{mode === 'up' ? t('account.signUpIntro') : mode === 'in' ? t('account.signInIntro') : t('account.resetIntro')}</p>
-      {mode !== 'reset' && (
-        <div className="seg" style={{ width: '100%' }}>
-          <button type="button" style={{ flex: 1 }} className={mode === 'in' ? 'active' : ''} onClick={() => { setMode('in'); setMsg(null); }}>{t('account.signIn')}</button>
-          <button type="button" style={{ flex: 1 }} className={mode === 'up' ? 'active' : ''} onClick={() => { setMode('up'); setMsg(null); }}>{t('account.signUp')}</button>
-        </div>
-      )}
+      <h1>{reset ? t('account.resetTitle') : t('account.signInTitle')}</h1>
+      <p className="muted">{reset ? t('account.resetIntro') : t('account.signInIntro')}</p>
       <form onSubmit={submit} className="account-form">
         <label className="field"><span className="field-label">{t('account.email')}</span>
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </label>
-        {mode !== 'reset' && (
-          <label className="field"><span className="field-label">{t('account.password')}</span>
-            <input type="password" autoComplete={mode === 'up' ? 'new-password' : 'current-password'} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
-            {mode === 'up' && <span className="field-hint">{t('account.passwordHint')}</span>}
-          </label>
-        )}
-        {mode === 'up' && (
-          <label className="field"><span className="field-label">{t('account.password2')}</span>
-            <input type="password" autoComplete="new-password" required minLength={8} value={password2} onChange={(e) => setPassword2(e.target.value)} />
+        {!reset && (
+          <label className="field">
+            <span className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="field-label">{t('account.password')}</span>
+              <a href="#reset" className="link-sm" onClick={(e) => { e.preventDefault(); go('reset'); }}>{t('account.forgot')}</a>
+            </span>
+            <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
         )}
         {msg && <div className={`callout ${msg.tone}`}>{msg.text}</div>}
-        <button className="btn primary lg" disabled={busy}>
-          {busy ? t('common.loading') : mode === 'in' ? t('account.signIn') : mode === 'up' ? t('account.createAccount') : t('account.sendReset')}
-        </button>
+        <button className="btn primary lg" disabled={busy}>{busy ? t('common.loading') : reset ? t('account.sendReset') : t('account.signIn')}</button>
       </form>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        {mode === 'in' && <button className="btn ghost sm" onClick={() => { setMode('reset'); setMsg(null); }}>{t('account.forgot')}</button>}
-        {mode === 'reset' && <button className="btn ghost sm" onClick={() => { setMode('in'); setMsg(null); }}>← {t('account.signIn')}</button>}
-      </div>
+      {reset ? (
+        <p className="auth-switch"><a href="#login" onClick={(e) => { e.preventDefault(); go('login'); }}>← {t('account.backToSignIn')}</a></p>
+      ) : (
+        <p className="auth-switch">{t('account.noAccount')} <a href="#signup" onClick={(e) => { e.preventDefault(); go('signup'); }}>{t('account.startTrial')}</a></p>
+      )}
     </Screen>
+  );
+}
+
+function SignUpPage({ go }: { go: (p: AuthPage) => void }) {
+  const { t } = useI18n();
+  const errorText = useAuthErrors();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'bad' | 'ok'; text: string } | null>(null);
+  const baht = (n: number) => `฿${n.toLocaleString()}`;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (password !== password2) return setMsg({ tone: 'bad', text: t('account.err.mismatch') });
+    setBusy(true);
+    try {
+      const { needsConfirm } = await signUp(email.trim(), password);
+      if (needsConfirm) setMsg({ tone: 'ok', text: t('account.checkEmail', { email: email.trim() }) });
+    } catch (err) {
+      setMsg({ tone: 'bad', text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="lock-screen">
+      <div className="lock-prefs"><ThemeSwitch /><LangSwitch /></div>
+      <div className="signup-layout">
+        <section className="lock-card account-card pricing-panel" style={{ textAlign: 'left' }}>
+          <div className="row"><span className="brand-mark">M</span><strong style={{ fontSize: '1.15rem' }}>Mise</strong></div>
+          <h1>{t('account.pricingTitle')}</h1>
+          <div className="trial-badge">🎁 {t('account.trialBadge', { days: TRIAL_DAYS })}</div>
+          <p className="muted" style={{ margin: 0 }}>{t('account.trialNoCard')}</p>
+          <div className="plan-cards">
+            <div className="plan-card">
+              <span className="plan-name">{t('account.plan.monthly')}</span>
+              <span className="plan-price">{baht(PLANS.monthly.price)}<small>/{t('account.perMonth')}</small></span>
+            </div>
+            <div className="plan-card best">
+              <span className="plan-tag">{t('account.save', { amount: baht(YEARLY_SAVING) })}</span>
+              <span className="plan-name">{t('account.plan.yearly')}</span>
+              <span className="plan-price">{baht(PLANS.yearly.price)}<small>/{t('account.perYear')}</small></span>
+            </div>
+          </div>
+          <ul className="feature-list">
+            {(['pos', 'stock', 'menu', 'staff', 'sync', 'thai'] as const).map((f) => <li key={f}>✓ {t(`account.feature.${f}`)}</li>)}
+          </ul>
+        </section>
+
+        <section className="lock-card account-card" style={{ textAlign: 'left' }}>
+          <h1>{t('account.signUpTitle')}</h1>
+          <p className="muted">{t('account.signUpIntro')}</p>
+          <form onSubmit={submit} className="account-form">
+            <label className="field"><span className="field-label">{t('account.email')}</span>
+              <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+            </label>
+            <label className="field"><span className="field-label">{t('account.password')}</span>
+              <input type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+              <span className="field-hint">{t('account.passwordHint')}</span>
+            </label>
+            <label className="field"><span className="field-label">{t('account.password2')}</span>
+              <input type="password" autoComplete="new-password" required minLength={8} value={password2} onChange={(e) => setPassword2(e.target.value)} />
+            </label>
+            {msg && <div className={`callout ${msg.tone}`}>{msg.text}</div>}
+            <button className="btn primary lg" disabled={busy}>{busy ? t('common.loading') : t('account.startTrialBtn', { days: TRIAL_DAYS })}</button>
+          </form>
+          <p className="auth-switch">{t('account.haveAccount')} <a href="#login" onClick={(e) => { e.preventDefault(); go('login'); }}>{t('account.signIn')}</a></p>
+        </section>
+      </div>
+    </div>
   );
 }
 

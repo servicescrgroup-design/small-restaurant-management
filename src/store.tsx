@@ -165,7 +165,8 @@ export function normalize(s: AppState): AppState {
   return { ...s, staff, tables, tickets, settings: { ...defaultSettings(), ...s.settings } };
 }
 
-export type SyncStatus = 'saved' | 'saving' | 'offline';
+/** locked = the trial ended / plan lapsed, so the server won't accept saves */
+export type SyncStatus = 'saved' | 'saving' | 'offline' | 'locked';
 
 interface StoreCtx {
   state: AppState;
@@ -211,10 +212,16 @@ export function StoreProvider({ children, backend = localBackend }: { children: 
       if (rebased) setState(applyAll(rebased, pending.current));
       channel.current?.postMessage({ rev });
       setSync(pending.current.length ? 'saving' : 'saved');
-    } catch {
-      // Offline or server trouble: keep the changes and try again shortly.
-      setSync('offline');
-      retry = 5000;
+    } catch (err) {
+      if (/subscription_required/.test(String((err as { message?: string })?.message ?? err))) {
+        // Trial over / plan lapsed: keep the changes on screen, retry slowly in case they subscribe.
+        setSync('locked');
+        retry = 60_000;
+      } else {
+        // Offline or server trouble: keep the changes and try again shortly.
+        setSync('offline');
+        retry = 5000;
+      }
     } finally {
       saving.current = false;
     }

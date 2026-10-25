@@ -4,3 +4,4 @@ dist
 .claude
 .DS_Store
 *.local
+.env.uipreview

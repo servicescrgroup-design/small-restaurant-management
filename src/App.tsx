@@ -11,6 +11,8 @@ import Menu from './pages/Menu';
 import Calculators from './pages/Calculators';
 import Setup from './pages/Setup';
 import Account from './pages/Account';
+import { TrialBanner, TrialEnded } from './components/Billing';
+import { useAccount } from './account';
 
 export type Page = 'dashboard' | 'pos' | 'orders' | 'inventory' | 'menu' | 'calculators' | 'setup' | 'account';
 
@@ -42,6 +44,7 @@ function Shell() {
   const { state } = useStore();
   const { user, logout } = useAuth();
   const { t } = useI18n();
+  const account = useAccount();
   const role = user?.role;
   const [requested, setRequested] = useState<Page>(fromHash);
   // Staff who land on an owner-only page (or the default dashboard) go to the POS.
@@ -89,7 +92,9 @@ function Shell() {
           </button>
         </div>
       </nav>
+      {account && !account.access.canSave && account.subscription ? <TrialEnded /> : (
       <main className="main">
+        <TrialBanner go={go} />
         {state.isDemo && page !== 'pos' && role === 'owner' && (
           <div className="demo-banner">
             {t('common.demo.banner')}
@@ -105,6 +110,7 @@ function Shell() {
         {page === 'setup' && <Setup go={go} />}
         {page === 'account' && <Account go={go} />}
       </main>
+      )}
     </div>
   );
 }

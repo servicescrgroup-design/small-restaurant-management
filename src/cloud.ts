@@ -1,5 +1,6 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { AppState } from './types';
+import type { Subscription } from './plans';
 
 /**
  * Cloud accounts (Supabase). Each business has its own private data, readable only by its members
@@ -108,6 +109,27 @@ export function watchBusiness(id: string, onChange: (rev: string) => void): () =
     .channel(`business-${id}`)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'business_heads', filter: `business_id=eq.${id}` },
       (p) => onChange((p.new as { rev: string }).rev))
+    .subscribe();
+  return () => { void sb().removeChannel(ch); };
+}
+
+// ---------- Subscription (trial / plan) ----------
+
+export async function loadSubscription(id: string): Promise<Subscription | null> {
+  const { data, error } = await sb()
+    .from('business_subscriptions')
+    .select('status, plan, trial_ends_at, current_period_end')
+    .eq('business_id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { status: data.status, plan: data.plan, trialEndsAt: data.trial_ends_at, currentPeriodEnd: data.current_period_end };
+}
+
+/** Calls `onChange` when the business's plan changes (e.g. after paying on another device). */
+export function watchSubscription(id: string, onChange: () => void): () => void {
+  const ch = sb()
+    .channel(`subscription-${id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'business_subscriptions', filter: `business_id=eq.${id}` }, () => onChange())
     .subscribe();
   return () => { void sb().removeChannel(ch); };
 }
