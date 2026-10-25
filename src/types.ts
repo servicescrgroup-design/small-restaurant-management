@@ -110,7 +110,10 @@ export interface OptionGroup {
 
 export interface MenuItem {
   id: string;
+  /** Name as printed on the shop's menu (usually Thai) */
   name: string;
+  /** English name, shown when the app is in English */
+  nameEn?: string;
   /** Menu tab (Food, Drinks…); when missing, a tab matching the category name or the first tab is used */
   tab?: string;
   category: string;

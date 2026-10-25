@@ -83,3 +83,12 @@ export const fmtLongDate = (s: string) =>
 
 /** Short time like "11:04 PM" / "23:04". */
 export const fmtTime = (d: Date) => d.toLocaleTimeString(getLocale(), { hour: 'numeric', minute: '2-digit' });
+
+/** A dish's name in the screen's language: its English name in English when it has one. */
+export const dishName = (m: { name: string; nameEn?: string }, lang: string) => (lang === 'en' && m.nameEn?.trim() ? m.nameEn.trim() : m.name);
+
+/** The dish's name in the other language, if it has a different one (shown small underneath). */
+export const otherDishName = (m: { name: string; nameEn?: string }, lang: string) => {
+  const other = lang === 'en' ? m.name : m.nameEn?.trim();
+  return other && other !== dishName(m, lang) ? other : undefined;
+};

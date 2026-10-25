@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { useI18n } from '../i18n';
 import { Field, NumInput } from '../components/ui';
 import ImportTab, { SOURCES, SourceButton, type Source } from './ImportTab';
+import MenuScan from '../components/MenuScan';
 import { CurrencySelect } from './Setup';
 import type { MenuItem, Settings } from '../types';
 import { uid } from '../utils';
@@ -22,8 +23,8 @@ export default function SetupGuide({ go }: { go: (p: Page) => void }) {
   const { state, update } = useStore();
   const { t } = useI18n();
   const [step, setStep] = useState<Step>('store');
-  const [from, setFrom] = useState<Source | 'manual' | null>(null);
-  const [imported, setImported] = useState<{ n: number; from: Source | 'manual' } | null>(null);
+  const [from, setFrom] = useState<Source | 'manual' | 'photo' | null>(null);
+  const [imported, setImported] = useState<{ n: number; from: Source | 'manual' | 'photo' } | null>(null);
   const at = STEPS.indexOf(step);
 
   const finish = (page: Page = 'dashboard') => {
@@ -58,6 +59,11 @@ export default function SetupGuide({ go }: { go: (p: Page) => void }) {
             <h2>{t('guide.menu.title')}</h2>
             <p className="muted" style={{ marginTop: 4 }}>{t('guide.menu.intro')}</p>
             <div className="import-sources">
+              <button type="button" className={`import-source photo ${from === 'photo' ? 'active' : ''}`} onClick={() => { setFrom('photo'); setImported(null); }}>
+                <span className="import-logo" aria-hidden>📷</span>
+                <strong>{t('importer.scan.sourceTitle')}</strong>
+                <span>{t('importer.scan.sourceHint')}</span>
+              </button>
               <button type="button" className={`import-source manual ${from === 'manual' ? 'active' : ''}`} onClick={() => { setFrom('manual'); setImported(null); }}>
                 <span className="import-logo" aria-hidden>✍️</span>
                 <strong>{t('guide.manual.title')}</strong>
@@ -66,9 +72,10 @@ export default function SetupGuide({ go }: { go: (p: Page) => void }) {
               {SOURCES.map((src) => <SourceButton key={src} src={src} active={from === src} onClick={() => { setFrom(src); setImported(null); }} />)}
             </div>
           </div>
+          {from === 'photo' && !imported && <MenuScan onClose={() => setFrom(null)} onAdded={(n) => setImported({ n, from: 'photo' })} />}
           {from === 'manual' && !imported && <FirstDishes onDone={(n) => setImported({ n, from: 'manual' })} />}
-          {from && from !== 'manual' && !imported && <ImportTab key={from} source={from} onImported={(n, src) => setImported({ n, from: src })} />}
-          {imported && <div className="callout ok">{imported.from === 'manual' ? t('guide.manual.done', { n: imported.n }) : t('guide.menu.done', { n: imported.n, source: t(`importer.src.${imported.from}`) })}</div>}
+          {from && from !== 'manual' && from !== 'photo' && !imported && <ImportTab key={from} source={from} onImported={(n, src) => setImported({ n, from: src })} />}
+          {imported && <div className="callout ok">{imported.from === 'manual' || imported.from === 'photo' ? t('guide.manual.done', { n: imported.n }) : t('guide.menu.done', { n: imported.n, source: t(`importer.src.${imported.from}`) })}</div>}
           <div className="row">
             <button className="btn" onClick={() => setStep('store')}>← {t('common.back')}</button>
             <span className="spacer" />

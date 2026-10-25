@@ -133,3 +133,37 @@ export function watchSubscription(id: string, onChange: () => void): () => void 
     .subscribe();
   return () => { void sb().removeChannel(ch); };
 }
+
+// ---------- Menu photo reader (api/menu-scan.ts) ----------
+
+export interface ScannedVariant { label_th: string; label_en: string; price: number }
+export interface ScannedDish { name_th: string; name_en: string; variants: ScannedVariant[] }
+export interface ScannedMenu {
+  sections: { category_th: string; category_en: string; dishes: ScannedDish[] }[];
+  extras: { name_th: string; name_en: string; price: number }[];
+  unsure: string[];
+}
+export type ScanError = 'sign_in_required' | 'not_configured' | 'busy' | 'declined' | 'too_long' | 'unreadable' | 'too_big' | 'failed';
+
+/** Send menu photos (base64 JPEG/PNG/WebP) to be read; only signed-in accounts may use it. */
+export async function scanMenu(images: { media_type: string; data: string }[]): Promise<ScannedMenu> {
+  const session = cloudEnabled ? await getSession() : null;
+  if (!session) throw new Error('sign_in_required' satisfies ScanError);
+  let r: Response;
+  try {
+    r = await fetch('/api/menu-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ images }),
+    });
+  } catch {
+    throw new Error('failed' satisfies ScanError);
+  }
+  if (r.status === 413) throw new Error('too_big' satisfies ScanError);
+  const body = await r.json().catch(() => null) as (ScannedMenu & { error?: string }) | null;
+  if (!r.ok || !body || body.error) {
+    const known: ScanError[] = ['sign_in_required', 'not_configured', 'busy', 'declined', 'too_long', 'unreadable'];
+    throw new Error(known.includes(body?.error as ScanError) ? body!.error : 'failed');
+  }
+  return body;
+}

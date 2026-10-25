@@ -5,7 +5,7 @@ import { defaultChoices, missingGroups, recordSale, resolveDish, sameChoices, se
 import { Field, Modal, NumInput, Pill, Thumb } from '../components/ui';
 import { Receipt } from '../components/Receipt';
 import type { AppState, MenuItem, OpenTicket, Order, OrderType, Table, TicketLine } from '../types';
-import { round, uid } from '../utils';
+import { dishName, round, uid } from '../utils';
 import { useI18n, type TFunc } from '../i18n';
 
 // Payment names are user data (and may be Thai), so match cash/card loosely.
@@ -185,7 +185,7 @@ function TicketChip({ ticket, index, onClick }: { ticket: OpenTicket; index?: nu
 function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch: (id: string | null) => void; onPaid: (o: Order) => void }) {
   const { state, update, money } = useStore();
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const s = state.settings;
   const onMenu = state.menu.filter((m) => m.active);
   const tabs = s.menuTabs.filter((x) => onMenu.some((m) => tabOf(m, s.menuTabs) === x));
@@ -234,7 +234,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
   });
 
   const { subtotal, discount, tax, due } = ticketTotals(state, ticket);
-  const shown = activeMenu.filter((m) => (cat === 'All' || m.category === cat) && m.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const shown = activeMenu.filter((m) => (cat === 'All' || m.category === cat) && `${m.name} ${m.nameEn ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
   const countIn = (c: string) => activeMenu.filter((m) => c === 'All' || m.category === c).length;
   const currencySymbol = money(0).replace(/[\d.,\s]/g, '') || '$';
 
@@ -300,7 +300,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
                 <button key={m.id} className={`pos-item ${left === 0 ? 'out' : ''} ${inCart ? 'in-cart' : ''}`} onClick={() => tapDish(m)}>
                   <Thumb src={m.image} name={m.name} />
                   {left === 0 ? <span className="badge"><Pill tone="bad">{t('pos.soldOut')}</Pill></span> : left <= 5 ? <span className="badge"><Pill tone="warn">{t('pos.left', { n: left })}</Pill></span> : null}
-                  <span className="name">{m.name}</span>
+                  <span className="name">{dishName(m, lang)}</span>
                   {hasOptions && <span className="item-options">{t('pos.optionsCount', { n: m.optionGroups!.length })}</span>}
                   <span className="item-foot">
                     <span className="price">{pricesVary(m) ? t('pos.from', { price: money(fromPrice(m)) }) : money(base.price)}</span>
@@ -361,7 +361,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
               <div key={l.id} className="ticket-line">
                 <Thumb src={m.image} name={m.name} size="sm" />
                 <div className="line-main">
-                  <strong>{m.name}</strong>
+                  <strong>{dishName(m, lang)}</strong>
                   {dish.label && (
                     <button className="line-options" onClick={() => setPicking({ item: m, line: l })} title={t('pos.changeOptions')}>{dish.label} ✎</button>
                   )}
@@ -446,7 +446,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
 /** Choose rice / meat / size etc. for a dish, with quantity and a kitchen note. */
 function OptionPicker({ item, line, onClose, onConfirm }: { item: MenuItem; line?: TicketLine; onClose: () => void; onConfirm: (c: Choices, qty: number, note: string) => void }) {
   const { money } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [choices, setChoices] = useState<Choices>(line?.choices ?? defaultChoices(item));
   const [qty, setQty] = useState(line?.qty ?? 1);
   const [note, setNote] = useState(line?.note ?? '');
@@ -461,7 +461,7 @@ function OptionPicker({ item, line, onClose, onConfirm }: { item: MenuItem; line
 
   return (
     <Modal
-      title={item.name}
+      title={dishName(item, lang)}
       onClose={onClose}
       footer={
         <>

@@ -754,6 +754,7 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
 .dish-card-body { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .dish-card h3 { color: #fff; font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.35; overflow-wrap: anywhere; }
 .dish-card-cat { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.85; }
+.dish-card-alt { font-size: 13px; opacity: 0.9; margin-top: -4px; overflow-wrap: anywhere; }
 .dish-card-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .dish-card-meta strong { font-size: 1.08rem; }
 .dish-card-fc { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); }
@@ -806,3 +807,35 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
   .rc-lines li { grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; }
 }
 @keyframes sheet-up { from { transform: translateY(100%); } }
+
+/* ---------- Menu photo reader ---------- */
+.photo-btn { background: linear-gradient(135deg, #ff6a88, #ff9a5a); color: #fff; border-color: transparent; box-shadow: 0 10px 22px -12px #ff6a88; }
+.import-source.photo .import-logo { background: linear-gradient(135deg, #ff6a88, #ff9a5a); }
+.scan-drop { padding: 34px 16px; }
+.scan-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.scan-photo { position: relative; margin: 0; aspect-ratio: 3 / 4; border-radius: 14px; overflow: hidden; border: 1px solid var(--glass-border); box-shadow: var(--shadow); }
+.scan-photo img { width: 100%; height: 100%; object-fit: cover; }
+.scan-photo-x { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.55); color: #fff; cursor: pointer; }
+.scan-reading { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 8px 26px; text-align: center; }
+.scan-stack { position: relative; width: 170px; height: 200px; margin-bottom: 10px; }
+.scan-stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 14px; border: 3px solid #fff; box-shadow: var(--shadow-lg); transform: rotate(calc((var(--i, 0) - 1) * 6deg)) translateX(calc((var(--i, 0) - 1) * 10px)); }
+.scan-beam { position: absolute; left: -8px; right: -8px; height: 4px; top: 0; border-radius: 4px; background: linear-gradient(90deg, transparent, #ff6a88, #ffb36b, transparent); box-shadow: 0 0 18px 4px rgba(255, 106, 136, 0.55); animation: scan-beam 1.8s ease-in-out infinite alternate; }
+@keyframes scan-beam { from { top: 0; } to { top: calc(100% - 4px); } }
+.scan-rows { display: flex; flex-direction: column; gap: 8px; }
+.scan-row { display: grid; grid-template-columns: 22px minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px 12px; align-items: start; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--glass-border); background: var(--glass-soft); }
+.scan-row.off { opacity: 0.45; }
+.scan-row > input[type='checkbox'] { width: 18px; height: 18px; margin-top: 10px; }
+.scan-names { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.scan-names input { padding: 7px 10px; }
+.scan-names input:first-child { font-weight: 650; }
+.scan-cat { font-size: 12px; color: var(--muted); }
+.scan-variants { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+.scan-variant { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-strong); font-size: 13px; }
+.scan-variant.off { opacity: 0.5; }
+.scan-variant input[type='checkbox'] { width: 15px; height: 15px; }
+.scan-variant input[inputmode] { width: 74px; padding: 5px 8px; }
+.scan-extras { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; border: 1px dashed var(--hairline); }
+@media (max-width: 640px) {
+  .scan-row { grid-template-columns: 22px minmax(0, 1fr); }
+  .scan-variants { grid-column: 2; }
+}

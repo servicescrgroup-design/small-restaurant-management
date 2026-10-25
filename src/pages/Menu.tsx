@@ -4,8 +4,9 @@ import { defaultChoices, recipeCost, resolveDish, servingsAvailable, tabOf, unit
 import { Empty, Field, ImageField, Modal, NumInput, Pill, Thumb } from '../components/ui';
 import { RecipeEditor } from '../components/Recipe';
 import { Plate, RecipeCard, paletteOf, type CardLine } from '../components/RecipeCard';
+import MenuScan from '../components/MenuScan';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
-import { pct, uid } from '../utils';
+import { dishName, otherDishName, pct, uid } from '../utils';
 import { useI18n } from '../i18n';
 
 export function foodCostTone(fc: number, target: number): 'ok' | 'warn' | 'bad' {
@@ -26,9 +27,11 @@ const savedView = (): View => { try { return localStorage.getItem(VIEW_KEY) === 
 
 export default function Menu() {
   const { state, update, money } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [viewing, setViewing] = useState<MenuItem | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState(0);
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
   const [cat, setCat] = useState('All');
@@ -50,8 +53,12 @@ export default function Menu() {
           <h1>{t('common.nav.menu')}</h1>
           <p>{t('menu.intro', { target })}</p>
         </div>
-        <button className="btn primary" onClick={() => setEditing(blank())}>{t('menu.newItem')}</button>
+        <div className="row">
+          <button className="btn photo-btn" onClick={() => setScanning(true)}>📷 {t('importer.scan.button')}</button>
+          <button className="btn primary" onClick={() => setEditing(blank())}>{t('menu.newItem')}</button>
+        </div>
       </div>
+      {scanned > 0 && <div className="callout ok" style={{ marginBottom: 14 }}>{t('importer.scan.done', { n: scanned })}</div>}
 
       <div className="row" style={{ marginBottom: 14 }}>
         {tabs.length > 1 && (
@@ -70,7 +77,12 @@ export default function Menu() {
       </div>
 
       {view === 'cards' && (list.length === 0 ? (
-        <div className="card"><Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty></div>
+        <div className="card">
+          <Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty>
+          <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
+            <button className="btn primary lg" onClick={() => setScanning(true)}>📷 {t('importer.scan.button')}</button>
+          </div>
+        </div>
       ) : (
         <div className="dish-cards" key={`${tab}|${cat}`}>
           {list.map((m, i) => {
@@ -87,7 +99,8 @@ export default function Menu() {
                 <span className="dish-card-plate spin-on-scroll"><Plate image={m.image} name={m.name} size={112} /></span>
                 <div className="dish-card-body">
                   <span className="dish-card-cat">{m.category}{m.active ? '' : ` · ${t('menu.hidden')}`}</span>
-                  <h3>{m.name}</h3>
+                  <h3>{dishName(m, lang)}</h3>
+                  {otherDishName(m, lang) && <span className="dish-card-alt">{otherDishName(m, lang)}</span>}
                   <div className="dish-card-meta">
                     <strong>{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</strong>
                     {recipe.length > 0 && <span className={`dish-card-fc ${foodCostTone(fc, target)}`}>{t('menu.card.foodCost', { pct: pct(fc) })}</span>}
@@ -127,7 +140,8 @@ export default function Menu() {
                         <div className="cell-thumb">
                           <Thumb src={m.image} name={m.name} size="xs" />
                           <div>
-                            <strong>{m.name}</strong>
+                            <strong>{dishName(m, lang)}</strong>
+                            {otherDishName(m, lang) && <div className="sub">{otherDishName(m, lang)}</div>}
                             {m.description && <div className="sub">{m.description}</div>}
                             {groups > 0 && <div className="sub">{m.optionGroups!.map((g) => g.name).join(' · ')}</div>}
                           </div>
@@ -150,6 +164,8 @@ export default function Menu() {
           </div>
         )}
       </div>}
+
+      {scanning && <MenuScan onClose={() => setScanning(false)} onAdded={(n) => { setScanned(n); setTab('All'); setCat('All'); }} />}
 
       {viewing && (
         <RecipeSheet
@@ -184,7 +200,7 @@ export default function Menu() {
 /** Full recipe for one dish as a recipe card; the header shrinks as you scroll the ingredients. */
 function RecipeSheet({ item, onClose, onEdit }: { item: MenuItem; onClose: () => void; onEdit: () => void }) {
   const { state, money } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [servings, setServings] = useState(1);
   const sheet = useRef<HTMLDivElement>(null);
   const { recipe, price } = dishDefaults(state, item);
@@ -216,8 +232,8 @@ function RecipeSheet({ item, onClose, onEdit }: { item: MenuItem; onClose: () =>
       <button className="recipe-sheet-close" onClick={onClose} aria-label={t('common.close')}>✕</button>
       <div className="recipe-sheet" ref={sheet} onScroll={onScroll}>
         <RecipeCard
-          title={item.name}
-          subtitle={[item.category, money(price)].join(' · ')}
+          title={dishName(item, lang)}
+          subtitle={[otherDishName(item, lang), item.category, money(price)].filter(Boolean).join(' · ')}
           image={item.image}
           lines={lines}
           servings={servings}
@@ -272,6 +288,7 @@ export function MenuItemModal({ item, onClose, onSave, onDelete }: { item: MenuI
     >
       <div className="form-grid">
         <Field label={t('menu.name')}><input autoFocus value={m.name} onChange={(e) => set('name', e.target.value)} placeholder={t('menu.namePlaceholder')} /></Field>
+        <Field label={t('menu.nameEn')} hint={t('menu.nameEnHint')}><input value={m.nameEn ?? ''} onChange={(e) => set('nameEn', e.target.value || undefined)} placeholder={t('menu.nameEnPlaceholder')} /></Field>
         {tabs.length > 0 && (
           <Field label={t('menu.tab')}>
             <select value={tab} onChange={(e) => set('tab', e.target.value)}>{tabs.map((x) => <option key={x}>{x}</option>)}</select>

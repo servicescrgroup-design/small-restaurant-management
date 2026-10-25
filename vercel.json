@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/menu-scan.ts": {
+      "maxDuration": 300
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

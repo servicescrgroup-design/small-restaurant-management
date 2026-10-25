@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
 import { Field, NumInput, Pill } from '../components/ui';
+import MenuScan from '../components/MenuScan';
 import { guessColumns, parsePastedMenu, readSpreadsheet, rowsFromTable, type Column, type ImportRow } from '../importer';
 import type { MenuItem } from '../types';
 import { uid } from '../utils';
@@ -28,6 +29,7 @@ export default function ImportTab({ source: fixedSource, onImported }: { source?
   const [mode, setMode] = useState<'add' | 'replace'>('add');
   const [tab, setTab] = useState(s.menuTabs[0] ?? '');
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad' | 'info'; text: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const fallbackCat = s.menuCategories[0] ?? t('importer.defaultCategory');
 
@@ -111,8 +113,14 @@ export default function ImportTab({ source: fixedSource, onImported }: { source?
     <div className="grid">
       {!fixedSource && (
         <div className="card">
-          <h2>{t('importer.title')}</h2>
-          <p className="muted" style={{ marginTop: 4 }}>{t('importer.intro')}</p>
+          <div className="card-head">
+            <div>
+              <h2>{t('importer.title')}</h2>
+              <p className="muted" style={{ marginTop: 4 }}>{t('importer.intro')}</p>
+            </div>
+            <button className="btn photo-btn" onClick={() => setScanning(true)}>📷 {t('importer.scan.button')}</button>
+          </div>
+          {scanning && <MenuScan onClose={() => setScanning(false)} onAdded={(n) => setMsg({ tone: 'ok', text: t('importer.scan.done', { n }) })} />}
           <div className="import-sources">
             {SOURCES.map((src) => (
               <SourceButton key={src} src={src} active={source === src} onClick={() => { setSource(src); reset(); }} />

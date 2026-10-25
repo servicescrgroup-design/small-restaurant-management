@@ -76,6 +76,9 @@ export default defineMessages(
     'card.addRecipe': 'Add recipe',
     'card.canMake': 'Enough stock for {n} more plates.',
     'card.editDish': 'Edit dish',
+    nameEn: 'English name',
+    nameEnHint: 'Shown when the app is in English. Leave blank to always show the name above.',
+    nameEnPlaceholder: 'e.g. Stir-fried Holy Basil',
   },
   {
     basePrice: 'ราคาเริ่มต้น',
@@ -152,5 +155,8 @@ export default defineMessages(
     'card.addRecipe': 'เพิ่มสูตร',
     'card.canMake': 'สต็อกพอทำได้อีก {n} จาน',
     'card.editDish': 'แก้ไขเมนู',
+    nameEn: 'ชื่อภาษาอังกฤษ',
+    nameEnHint: 'แสดงเมื่อใช้แอปเป็นภาษาอังกฤษ เว้นว่างไว้เพื่อแสดงชื่อด้านบนเสมอ',
+    nameEnPlaceholder: 'เช่น Stir-fried Holy Basil',
   },
 );
