@@ -8,6 +8,7 @@ import menu from './menu';
 import calc from './calc';
 import setup from './setup';
 import importer from './importer';
+import account from './account';
 
 /**
  * Translations. English is the main language; every English string must also have a Thai version.
@@ -30,7 +31,7 @@ export function defineMessages<E extends Messages>(en: E, th: { [K in keyof E]: 
   return { en, th: th as Messages };
 }
 
-const NAMESPACES: Record<string, { en: Messages; th: Messages }> = { common, dashboard, pos, orders, inventory, menu, calc, setup, importer };
+const NAMESPACES: Record<string, { en: Messages; th: Messages }> = { common, dashboard, pos, orders, inventory, menu, calc, setup, importer, account };
 
 export type Vars = Record<string, string | number>;
 export type TFunc = (key: string, vars?: Vars) => string;

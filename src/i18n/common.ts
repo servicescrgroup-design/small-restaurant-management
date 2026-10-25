@@ -3,6 +3,9 @@ import { defineMessages } from '.';
 // Shared strings: buttons, navigation, login, receipts, order types, expiry labels.
 export default defineMessages(
   {
+    loadFailed: "Couldn't load your data. Check your internet connection.",
+    retry: 'Try again',
+    'nav.account': 'Account',
     loading: 'Loading…',
     save: 'Save',
     saveChanges: 'Save changes',
@@ -138,6 +141,9 @@ export default defineMessages(
     'receipt.change': 'Change',
   },
   {
+    loadFailed: 'โหลดข้อมูลไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต',
+    retry: 'ลองอีกครั้ง',
+    'nav.account': 'บัญชี',
     loading: 'กำลังโหลด…',
     save: 'บันทึก',
     saveChanges: 'บันทึกการเปลี่ยนแปลง',

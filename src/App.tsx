@@ -10,8 +10,9 @@ import Inventory from './pages/Inventory';
 import Menu from './pages/Menu';
 import Calculators from './pages/Calculators';
 import Setup from './pages/Setup';
+import Account from './pages/Account';
 
-export type Page = 'dashboard' | 'pos' | 'orders' | 'inventory' | 'menu' | 'calculators' | 'setup';
+export type Page = 'dashboard' | 'pos' | 'orders' | 'inventory' | 'menu' | 'calculators' | 'setup' | 'account';
 
 const NAV: { id: Page; icon: string }[] = [
   { id: 'dashboard', icon: '▦' },
@@ -21,6 +22,7 @@ const NAV: { id: Page; icon: string }[] = [
   { id: 'menu', icon: '☰' },
   { id: 'calculators', icon: '±' },
   { id: 'setup', icon: '⚙' },
+  { id: 'account', icon: '☺' },
 ];
 
 const fromHash = (): Page => {
@@ -101,6 +103,7 @@ function Shell() {
         {page === 'menu' && <Menu />}
         {page === 'calculators' && <Calculators go={go} />}
         {page === 'setup' && <Setup go={go} />}
+        {page === 'account' && <Account go={go} />}
       </main>
     </div>
   );

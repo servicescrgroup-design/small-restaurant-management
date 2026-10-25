@@ -535,3 +535,17 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
   .modal-backdrop { background: none; backdrop-filter: none; }
 }
 .fee-box { padding: 10px 12px; border-radius: 14px; border: 1px dashed var(--hairline); background: var(--glass-soft); }
+
+/* ---------- Accounts ---------- */
+.account-card { gap: 14px; }
+.account-form { display: flex; flex-direction: column; gap: 12px; }
+.start-options { display: flex; flex-direction: column; gap: 8px; }
+.start-option { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 12px 14px; border-radius: 14px; border: 2px solid var(--glass-border); background: var(--glass-strong); cursor: pointer; color: var(--text); }
+.start-option span { font-size: 13px; color: var(--muted); }
+.start-option.active { border-color: var(--accent); background: var(--accent-soft); }
+.biz-list { display: flex; flex-direction: column; gap: 8px; }
+.biz-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid var(--glass-border); background: var(--glass-strong); cursor: pointer; text-align: left; color: var(--text); }
+.biz-item:hover { border-color: var(--accent); }
+.biz-item > span:last-child { display: flex; flex-direction: column; }
+.kv-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.danger-zone { border-color: var(--bad-soft); }
