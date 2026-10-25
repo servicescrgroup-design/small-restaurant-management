@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
-import { scanMenu, type ScannedMenu } from '../cloud';
+import { menuReadStatus, scanMenu, type MenuReadStatus, type ScannedMenu } from '../cloud';
+import { useAccount } from '../account';
+import { fmtPlanPrice, planCurrency, planPrices } from '../plans';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { uid } from '../utils';
 import { Modal, NumInput, Pill } from './ui';
@@ -78,6 +80,12 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
   const pickRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
+  const account = useAccount();
+  // Yearly-plan feature: 3 reads during the free trial
+  const [allowance, setAllowance] = useState<MenuReadStatus | null>(null);
+  const refreshAllowance = () => { if (account) void menuReadStatus(account.business.id).then(setAllowance); };
+  useEffect(refreshAllowance, [account?.business.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const locked = !!allowance && !allowance.allowed;
 
   useEffect(() => {
     if (stage !== 'reading') return;
@@ -102,7 +110,9 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
     setStage('reading');
     setError('');
     try {
-      const menu = await scanMenu(photos.map(({ media_type, data }) => ({ media_type, data })));
+      if (!account) throw new Error('sign_in_required');
+      const menu = await scanMenu(account.business.id, photos.map(({ media_type, data }) => ({ media_type, data })));
+      if (allowance?.plan === 'trial') setAllowance({ ...allowance, trial_left: menu.trial_left, allowed: (menu.trial_left ?? 0) > 0 });
       const r = rowsFrom(menu);
       if (!r.length) { setError(t('importer.scan.err.nothing')); setStage('pick'); return; }
       setRows(r);
@@ -110,7 +120,9 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
       setUnsure(menu.unsure);
       setStage('review');
     } catch (e) {
-      setError(t(`importer.scan.err.${(e as Error).message}`));
+      const code = (e as Error).message;
+      setError(t(`importer.scan.err.${code}`));
+      if (['yearly_only', 'trial_used', 'daily_limit'].includes(code)) refreshAllowance();
       setStage('pick');
     }
   };
@@ -170,7 +182,7 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
         stage === 'pick' ? (
           <>
             <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
-            <button className="btn primary" disabled={!photos.length} onClick={() => void read()}>{t('importer.scan.read', { n: photos.length })}</button>
+            <button className="btn primary" disabled={!photos.length || locked || !account} onClick={() => void read()}>{t('importer.scan.read', { n: photos.length })}</button>
           </>
         ) : stage === 'review' ? (
           <>
@@ -181,8 +193,12 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
         ) : undefined
       }
     >
-      {stage === 'pick' && (
+      {stage === 'pick' && locked && <YearlyOnly status={allowance!} onSeePlans={() => { onClose(); window.location.hash = 'account'; }} />}
+      {stage === 'pick' && !locked && (
         <>
+          {!account && <div className="callout warn">{t('importer.scan.err.sign_in_required')}</div>}
+          {allowance?.plan === 'trial' && <div className="callout info scan-allowance">🎁 {t('importer.scan.trialLeft', { n: allowance.trial_left ?? 0 })}</div>}
+          {allowance?.plan === 'yearly' && <div className="scan-allowance"><Pill tone="ok">★ {t('importer.scan.included')}</Pill></div>}
           <p className="muted" style={{ margin: 0 }}>{t('importer.scan.intro')}</p>
           <div
             className={`file-drop scan-drop ${over ? 'over' : ''}`}
@@ -282,5 +298,26 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
         </>
       )}
     </Modal>
+  );
+}
+
+/** Shown instead of the upload area when this shop's plan doesn't include photo reading. */
+function YearlyOnly({ status, onSeePlans }: { status: MenuReadStatus; onSeePlans: () => void }) {
+  const { t, lang } = useI18n();
+  const cur = planCurrency(lang);
+  const p = planPrices(cur);
+  const money = (n: number) => fmtPlanPrice(n, cur);
+  return (
+    <div className="scan-locked">
+      <span className="scan-locked-icon" aria-hidden>📷</span>
+      <h3>{t('importer.scan.lockedTitle')}</h3>
+      <p>{t(status.reason === 'daily_limit' ? 'importer.scan.lockedDaily' : status.plan === 'trial' ? 'importer.scan.lockedTrialUsed' : 'importer.scan.lockedBody')}</p>
+      {status.reason !== 'daily_limit' && (
+        <>
+          <div className="scan-locked-price">{money(p.yearly)}<small>/{t('account.perYear')}</small> · {t('account.perMonthEquiv', { amount: money(p.yearlyPerMonth) })}</div>
+          <button className="btn" onClick={onSeePlans}>{t('importer.scan.seePlans')}</button>
+        </>
+      )}
+    </div>
   );
 }

@@ -839,3 +839,14 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
   .scan-row { grid-template-columns: 22px minmax(0, 1fr); }
   .scan-variants { grid-column: 2; }
 }
+
+/* Yearly-plan feature: photo reading */
+.plan-perk { font-size: 12.5px; font-weight: 650; color: var(--accent); }
+.scan-allowance { margin: 0; }
+.scan-locked { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 26px 18px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #ff6a88, #ff9a5a); box-shadow: 0 20px 40px -24px #ff6a88; }
+.scan-locked h3 { color: #fff; font-size: 1.15rem; }
+.scan-locked p { margin: 0; max-width: 460px; opacity: 0.95; }
+.scan-locked-icon { font-size: 2.2rem; }
+.scan-locked-price { font-weight: 800; font-size: 1.1rem; }
+.scan-locked-price small { font-weight: 600; opacity: 0.85; }
+.scan-locked .btn { margin-top: 6px; color: #33266b; }

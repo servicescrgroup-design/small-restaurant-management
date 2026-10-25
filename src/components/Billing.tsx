@@ -75,6 +75,7 @@ function PlanChoices({ current }: { current: PlanId | null }) {
             <span className="plan-name">{t(`account.plan.${id}`)}</span>
             <span className="plan-price">{money(p[id])}<small>/{t(id === 'monthly' ? 'account.perMonth' : 'account.perYear')}</small></span>
             {id === 'yearly' && <span className="muted" style={{ fontSize: 12.5 }}>{t('account.perMonthEquiv', { amount: money(p.yearlyPerMonth) })}</span>}
+            {id === 'yearly' && <span className="plan-perk">📷 {t('account.perk.menuPhoto')}</span>}
             <button className="btn primary" disabled={!PAYMENTS_ENABLED || current === id}>
               {current === id ? t('account.currentPlan') : t('account.subscribe')}
             </button>

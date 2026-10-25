@@ -116,6 +116,7 @@ export default defineMessages(
     cloudTitle: 'Cloud business accounts',
     cloudOn: 'Cloud accounts are available — reload to sign in.',
     cloudOff: 'Cloud accounts are not connected for this copy of Mise yet.',
+    'perk.menuPhoto': 'Menu photo reading included',
   },
   {
     backToSignIn: 'กลับไปเข้าสู่ระบบ',
@@ -231,5 +232,6 @@ export default defineMessages(
     cloudTitle: 'บัญชีร้านบนคลาวด์',
     cloudOn: 'บัญชีคลาวด์พร้อมใช้งาน — โหลดหน้าใหม่เพื่อเข้าสู่ระบบ',
     cloudOff: 'Mise ชุดนี้ยังไม่ได้เชื่อมต่อบัญชีคลาวด์',
+    'perk.menuPhoto': 'รวมการอ่านรูปเมนู',
   },
 );

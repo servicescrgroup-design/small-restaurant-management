@@ -2,10 +2,11 @@
  * POST /api/menu-scan — read photos of a restaurant's printed menu and return its dishes.
  *
  * Runs on Vercel next to the app. The Anthropic API key lives only here (ANTHROPIC_API_KEY in the
- * Vercel project settings), and only signed-in Mise accounts can call it, so nobody else can spend
- * on the key.
+ * Vercel project settings). It's a yearly-plan feature (3 reads during the free trial): the shop's
+ * allowance is checked in the database before reading and the read is counted after it succeeds
+ * (supabase/migrations/0003_menu_photo_reads.sql).
  *
- * Body: { images: [{ media_type: "image/jpeg" | "image/png" | "image/webp", data: <base64> }] }
+ * Body: { business_id, images: [{ media_type: "image/jpeg" | "image/png" | "image/webp", data: <base64> }] }
  * Header: Authorization: Bearer <the user's Supabase access token>
  */
 import Anthropic from '@anthropic-ai/sdk';
@@ -85,23 +86,28 @@ const SCHEMA = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
-/** Only signed-in Mise accounts may use the scanner. */
-async function signedInUser(request: Request): Promise<string | null> {
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  if (!token) return null;
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
-  if (!r.ok) return null;
-  const user = (await r.json()) as { id?: string };
-  return user.id ?? null;
+interface ReadStatus { plan: 'yearly' | 'trial' | 'none'; allowed: boolean; trial_left: number | null; reason: string | null }
+
+/** Call a database function as the signed-in user (so membership and plan are checked there). */
+async function rpc(token: string, fn: string, args: Record<string, unknown>) {
+  return fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  });
 }
 
 export async function POST(request: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY) return json({ error: 'not_configured' }, 503);
-  if (!(await signedInUser(request))) return json({ error: 'sign_in_required' }, 401);
+  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  if (!token) return json({ error: 'sign_in_required' }, 401);
 
   let images: { media_type: MediaType; data: string }[];
+  let business: string;
   try {
-    const body = (await request.json()) as { images?: { media_type?: string; data?: string }[] };
+    const body = (await request.json()) as { business_id?: string; images?: { media_type?: string; data?: string }[] };
+    if (typeof body.business_id !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.business_id)) throw new Error('business');
+    business = body.business_id;
     images = (body.images ?? []).map((i) => {
       if (!MEDIA_TYPES.includes(i.media_type as MediaType) || typeof i.data !== 'string' || !i.data || i.data.length > MAX_IMAGE_BYTES) throw new Error('bad image');
       return { media_type: i.media_type as MediaType, data: i.data };
@@ -110,6 +116,13 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return json({ error: 'bad_request' }, 400);
   }
+
+  // Is this shop allowed a read right now? (yearly plan, or trial reads left)
+  const check = await rpc(token, 'menu_read_status', { p_business: business });
+  if (check.status === 401) return json({ error: 'sign_in_required' }, 401);
+  if (!check.ok) return json({ error: 'not_member' }, 403);
+  const status = ((await check.json()) as ReadStatus[])[0];
+  if (!status?.allowed) return json({ error: status?.reason ?? 'yearly_only', plan: status?.plan ?? 'none', trial_left: status?.trial_left ?? 0 }, 402);
 
   const client = new Anthropic();
   try {
@@ -135,7 +148,10 @@ export async function POST(request: Request): Promise<Response> {
     if (message.stop_reason === 'refusal') return json({ error: 'declined' }, 422);
     if (message.stop_reason === 'max_tokens') return json({ error: 'too_long' }, 422);
     const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
-    return json(JSON.parse(text));
+    const menu = JSON.parse(text) as Record<string, unknown>;
+    // Only a successful read counts against the allowance
+    await rpc(token, 'record_menu_read', { p_business: business });
+    return json({ ...menu, plan: status.plan, trial_left: status.plan === 'trial' ? Math.max(0, (status.trial_left ?? 1) - 1) : null });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'busy' }, 429);
     if (e instanceof Anthropic.APIError) return json({ error: 'ai_error', status: e.status }, 502);

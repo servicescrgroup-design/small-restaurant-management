@@ -143,10 +143,21 @@ export interface ScannedMenu {
   extras: { name_th: string; name_en: string; price: number }[];
   unsure: string[];
 }
-export type ScanError = 'sign_in_required' | 'not_configured' | 'busy' | 'declined' | 'too_long' | 'unreadable' | 'too_big' | 'failed';
+export type ScanError =
+  | 'sign_in_required' | 'not_configured' | 'busy' | 'declined' | 'too_long' | 'unreadable' | 'too_big' | 'failed'
+  | 'yearly_only' | 'trial_used' | 'daily_limit' | 'not_member';
 
-/** Send menu photos (base64 JPEG/PNG/WebP) to be read; only signed-in accounts may use it. */
-export async function scanMenu(images: { media_type: string; data: string }[]): Promise<ScannedMenu> {
+/** Menu photo reading is a yearly-plan feature, with 3 reads during the free trial. */
+export interface MenuReadStatus { plan: 'yearly' | 'trial' | 'none'; allowed: boolean; trial_left: number | null; reason: string | null }
+
+export async function menuReadStatus(businessId: string): Promise<MenuReadStatus | null> {
+  const { data, error } = await sb().rpc('menu_read_status', { p_business: businessId });
+  if (error) return null;
+  return ((data as MenuReadStatus[]) ?? [])[0] ?? null;
+}
+
+/** Send menu photos (base64 JPEG/PNG/WebP) to be read for this business. */
+export async function scanMenu(businessId: string, images: { media_type: string; data: string }[]): Promise<ScannedMenu & { trial_left: number | null }> {
   const session = cloudEnabled ? await getSession() : null;
   if (!session) throw new Error('sign_in_required' satisfies ScanError);
   let r: Response;
@@ -154,15 +165,15 @@ export async function scanMenu(images: { media_type: string; data: string }[]): 
     r = await fetch('/api/menu-scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ images }),
+      body: JSON.stringify({ business_id: businessId, images }),
     });
   } catch {
     throw new Error('failed' satisfies ScanError);
   }
   if (r.status === 413) throw new Error('too_big' satisfies ScanError);
-  const body = await r.json().catch(() => null) as (ScannedMenu & { error?: string }) | null;
+  const body = await r.json().catch(() => null) as (ScannedMenu & { error?: string; trial_left: number | null }) | null;
   if (!r.ok || !body || body.error) {
-    const known: ScanError[] = ['sign_in_required', 'not_configured', 'busy', 'declined', 'too_long', 'unreadable'];
+    const known: ScanError[] = ['sign_in_required', 'not_configured', 'busy', 'declined', 'too_long', 'unreadable', 'yearly_only', 'trial_used', 'daily_limit', 'not_member'];
     throw new Error(known.includes(body?.error as ScanError) ? body!.error : 'failed');
   }
   return body;

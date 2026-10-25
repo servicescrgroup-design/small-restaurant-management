@@ -242,6 +242,7 @@ function SignUpPage({ go }: { go: (p: AuthPage) => void }) {
               <span className="plan-tag">{t('account.save', { amount: money(prices.yearlySaving) })}</span>
               <span className="plan-name">{t('account.plan.yearly')}</span>
               <span className="plan-price">{money(prices.yearly)}<small>/{t('account.perYear')}</small></span>
+              <span className="plan-perk">📷 {t('account.perk.menuPhoto')}</span>
             </div>
           </div>
           <ul className="feature-list">
