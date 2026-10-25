@@ -1,8 +1,9 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
-import { defaultChoices, recipeCost, resolveDish, servingsAvailable, tabOf } from '../inventory';
+import { defaultChoices, recipeCost, resolveDish, servingsAvailable, tabOf, unitCost } from '../inventory';
 import { Empty, Field, ImageField, Modal, NumInput, Pill, Thumb } from '../components/ui';
 import { RecipeEditor } from '../components/Recipe';
+import { Plate, RecipeCard, paletteOf, type CardLine } from '../components/RecipeCard';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { pct, uid } from '../utils';
 import { useI18n } from '../i18n';
@@ -19,10 +20,17 @@ export function dishDefaults(state: Parameters<typeof recipeCost>[0], m: MenuIte
   return { ...dish, cost: recipeCost(state, dish.recipe) };
 }
 
+const VIEW_KEY = 'mise-menu-view';
+type View = 'cards' | 'list';
+const savedView = (): View => { try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cards'; } catch { return 'cards'; } };
+
 export default function Menu() {
   const { state, update, money } = useStore();
   const { t } = useI18n();
   const [editing, setEditing] = useState<MenuItem | null>(null);
+  const [viewing, setViewing] = useState<MenuItem | null>(null);
+  const [view, setViewState] = useState<View>(savedView);
+  const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
   const [cat, setCat] = useState('All');
   const [tab, setTab] = useState('All');
   const target = state.settings.targetFoodCost;
@@ -54,9 +62,48 @@ export default function Menu() {
         <div className="seg">
           {cats.map((c) => <button key={c} className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>{c === 'All' ? t('common.all') : c}</button>)}
         </div>
+        <span className="spacer" />
+        <div className="seg view-toggle" role="group" aria-label={t('menu.view.label')}>
+          <button className={view === 'cards' ? 'active' : ''} aria-pressed={view === 'cards'} onClick={() => setView('cards')}>▦ {t('menu.view.cards')}</button>
+          <button className={view === 'list' ? 'active' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}>≡ {t('menu.view.list')}</button>
+        </div>
       </div>
 
-      <div className="card">
+      {view === 'cards' && (list.length === 0 ? (
+        <div className="card"><Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty></div>
+      ) : (
+        <div className="dish-cards" key={`${tab}|${cat}`}>
+          {list.map((m, i) => {
+            const { cost, price, recipe } = dishDefaults(state, m);
+            const fc = price ? cost / price : 0;
+            const [from, to] = paletteOf(m.name, i);
+            const groups = m.optionGroups?.length ?? 0;
+            return (
+              <article
+                key={m.id}
+                className={`dish-card reveal ${m.active ? '' : 'is-hidden'}`}
+                style={{ ['--i' as string]: i % 6, ['--rc-from' as string]: from, ['--rc-to' as string]: to }}
+              >
+                <span className="dish-card-plate spin-on-scroll"><Plate image={m.image} name={m.name} size={112} /></span>
+                <div className="dish-card-body">
+                  <span className="dish-card-cat">{m.category}{m.active ? '' : ` · ${t('menu.hidden')}`}</span>
+                  <h3>{m.name}</h3>
+                  <div className="dish-card-meta">
+                    <strong>{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</strong>
+                    {recipe.length > 0 && <span className={`dish-card-fc ${foodCostTone(fc, target)}`}>{t('menu.card.foodCost', { pct: pct(fc) })}</span>}
+                  </div>
+                  <div className="dish-card-actions">
+                    <button className="dish-card-btn" onClick={() => setViewing(m)}>{t('menu.card.recipe')}</button>
+                    <button className="dish-card-btn ghost" onClick={() => setEditing(structuredClone(m))}>{t('common.edit')}</button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ))}
+
+      {view === 'list' && <div className="card">
         {list.length === 0 ? (
           <Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty>
         ) : (
@@ -102,7 +149,15 @@ export default function Menu() {
             </table>
           </div>
         )}
-      </div>
+      </div>}
+
+      {viewing && (
+        <RecipeSheet
+          item={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={() => { setEditing(structuredClone(viewing)); setViewing(null); }}
+        />
+      )}
 
       {editing && (
         <MenuItemModal
@@ -123,6 +178,64 @@ export default function Menu() {
         />
       )}
     </>
+  );
+}
+
+/** Full recipe for one dish as a recipe card; the header shrinks as you scroll the ingredients. */
+function RecipeSheet({ item, onClose, onEdit }: { item: MenuItem; onClose: () => void; onEdit: () => void }) {
+  const { state, money } = useStore();
+  const { t } = useI18n();
+  const [servings, setServings] = useState(1);
+  const sheet = useRef<HTMLDivElement>(null);
+  const { recipe, price } = dishDefaults(state, item);
+  const lines: CardLine[] = recipe.map((r, i) => {
+    const it = state.items.find((x) => x.id === r.itemId);
+    return { key: `${r.itemId}-${i}`, name: it?.name ?? '?', qty: r.qty, unit: it?.unit ?? '', cost: unitCost(state, r.itemId) * r.qty };
+  });
+  const avail = recipe.length ? servingsAvailable(state, recipe) : null;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  // 0 → 1 as the sheet scrolls, so the header can shrink smoothly
+  const onScroll = () => {
+    const el = sheet.current;
+    if (!el) return;
+    // The mini bar takes over once the big header (and its servings dial) has scrolled away
+    const head = el.querySelector<HTMLElement>('.rc-head')?.offsetHeight ?? 260;
+    el.style.setProperty('--shrink', Math.min(1, el.scrollTop / Math.max(1, head - 40)).toFixed(3));
+    el.classList.toggle('scrolled', el.scrollTop > head - 20);
+  };
+
+  return (
+    <div className="recipe-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="recipe-sheet-wrap" role="dialog" aria-modal="true" aria-label={item.name}>
+      <button className="recipe-sheet-close" onClick={onClose} aria-label={t('common.close')}>✕</button>
+      <div className="recipe-sheet" ref={sheet} onScroll={onScroll}>
+        <RecipeCard
+          title={item.name}
+          subtitle={[item.category, money(price)].join(' · ')}
+          image={item.image}
+          lines={lines}
+          servings={servings}
+          onServings={setServings}
+          servingsLabel={t('menu.card.plates')}
+          money={money}
+          empty={<>{t('menu.card.noRecipe')} <button className="btn sm" onClick={onEdit}>{t('menu.card.addRecipe')}</button></>}
+          footer={
+            <div className="rc-foot">
+              {item.description && <p className="muted">{item.description}</p>}
+              {avail !== null && <p className="muted">{t('menu.card.canMake', { n: avail })}</p>}
+              <button className="btn primary" onClick={onEdit}>{t('menu.card.editDish')}</button>
+            </div>
+          }
+        />
+      </div>
+      </div>
+    </div>
   );
 }
 

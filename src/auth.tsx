@@ -24,6 +24,8 @@ interface AuthCtx {
   user: Staff | null;
   login: (pin: string) => { ok: true; user: Staff } | { ok: false; error: string };
   logout: () => void;
+  /** Sign in someone who just set their own PIN (e.g. the owner on a new store) */
+  signInAs: (staffId: string) => void;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = state.staff.find((s) => s.id === userId && s.active) ?? null;
 
   const logout = useCallback(() => { setUserId(null); writeSession(null); }, []);
+  const signInAs = useCallback((id: string) => { setUserId(id); writeSession(id); }, []);
   const login = useCallback((pin: string) => {
     const r = checkPin(state.staff, pin);
     if (r.ok) { setUserId(r.user.id); writeSession(r.user.id); }
@@ -74,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { window.clearTimeout(timer.current); events.forEach((e) => window.removeEventListener(e, reset)); };
   }, [user, minutes, logout]);
 
-  return <Ctx.Provider value={{ user, login, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, login, logout, signInAs }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {
@@ -154,6 +157,7 @@ export function LockScreen() {
 
 export function CreateOwner() {
   const { state, update } = useStore();
+  const { signInAs } = useAuth();
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
@@ -169,7 +173,9 @@ export function CreateOwner() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!ok) return;
-          update((d) => { d.staff.push(newStaff(name.trim(), 'owner', pin)); });
+          const owner = newStaff(name.trim(), 'owner', pin);
+          update((d) => { d.staff.push(owner); });
+          signInAs(owner.id);
         }}
       >
         <span className="brand-mark">M</span>

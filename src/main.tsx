@@ -7,6 +7,7 @@ import App from './App';
 import './theme';
 import './styles.css';
 import { watchTableLabels } from './tableLabels';
+import { watchScrollEffects } from './reveal';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -21,3 +22,4 @@ createRoot(document.getElementById('root')!).render(
 );
 
 watchTableLabels();
+watchScrollEffects();

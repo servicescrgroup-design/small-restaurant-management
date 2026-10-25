@@ -5,7 +5,8 @@ import { useI18n } from '../i18n';
 import { Field, NumInput } from '../components/ui';
 import ImportTab, { SOURCES, SourceButton, type Source } from './ImportTab';
 import { CurrencySelect } from './Setup';
-import type { Settings } from '../types';
+import type { MenuItem, Settings } from '../types';
+import { uid } from '../utils';
 
 type Step = 'store' | 'menu' | 'pay' | 'done';
 const STEPS: Step[] = ['store', 'menu', 'pay', 'done'];
@@ -21,8 +22,8 @@ export default function SetupGuide({ go }: { go: (p: Page) => void }) {
   const { state, update } = useStore();
   const { t } = useI18n();
   const [step, setStep] = useState<Step>('store');
-  const [from, setFrom] = useState<Source | null>(null);
-  const [imported, setImported] = useState<{ n: number; from: Source } | null>(null);
+  const [from, setFrom] = useState<Source | 'manual' | null>(null);
+  const [imported, setImported] = useState<{ n: number; from: Source | 'manual' } | null>(null);
   const at = STEPS.indexOf(step);
 
   const finish = (page: Page = 'dashboard') => {
@@ -57,11 +58,17 @@ export default function SetupGuide({ go }: { go: (p: Page) => void }) {
             <h2>{t('guide.menu.title')}</h2>
             <p className="muted" style={{ marginTop: 4 }}>{t('guide.menu.intro')}</p>
             <div className="import-sources">
+              <button type="button" className={`import-source manual ${from === 'manual' ? 'active' : ''}`} onClick={() => { setFrom('manual'); setImported(null); }}>
+                <span className="import-logo" aria-hidden>✍️</span>
+                <strong>{t('guide.manual.title')}</strong>
+                <span>{t('guide.manual.hint')}</span>
+              </button>
               {SOURCES.map((src) => <SourceButton key={src} src={src} active={from === src} onClick={() => { setFrom(src); setImported(null); }} />)}
             </div>
           </div>
-          {from && !imported && <ImportTab key={from} source={from} onImported={(n, src) => setImported({ n, from: src })} />}
-          {imported && <div className="callout ok">{t('guide.menu.done', { n: imported.n, source: t(`importer.src.${imported.from}`) })}</div>}
+          {from === 'manual' && !imported && <FirstDishes onDone={(n) => setImported({ n, from: 'manual' })} />}
+          {from && from !== 'manual' && !imported && <ImportTab key={from} source={from} onImported={(n, src) => setImported({ n, from: src })} />}
+          {imported && <div className="callout ok">{imported.from === 'manual' ? t('guide.manual.done', { n: imported.n }) : t('guide.menu.done', { n: imported.n, source: t(`importer.src.${imported.from}`) })}</div>}
           <div className="row">
             <button className="btn" onClick={() => setStep('store')}>← {t('common.back')}</button>
             <span className="spacer" />
@@ -170,6 +177,55 @@ function PayStep({ suggestGrab, onBack, onNext }: { suggestGrab: boolean; onBack
         <span className="spacer" />
         <button className="btn primary" disabled={!picked.size} onClick={save}>{t('guide.next')} →</button>
       </div>
+    </div>
+  );
+}
+
+/** Type the first few dishes straight in: name, category and price, one row each. */
+function FirstDishes({ onDone }: { onDone: (n: number) => void }) {
+  const { state, update, money } = useStore();
+  const { t } = useI18n();
+  const cats = state.settings.menuCategories;
+  const blank = () => ({ id: uid(), name: '', category: cats[0] ?? t('importer.defaultCategory'), price: 0 });
+  const [rows, setRows] = useState(() => [blank(), blank(), blank()]);
+  const set = (id: string, p: Partial<ReturnType<typeof blank>>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
+  const ready = rows.filter((r) => r.name.trim() && r.price > 0);
+
+  const save = () => {
+    const items: MenuItem[] = ready.map((r) => ({
+      id: uid(), name: r.name.trim(), tab: state.settings.menuTabs[0] ?? '', category: r.category.trim() || cats[0] || t('importer.defaultCategory'),
+      price: r.price, active: true, recipe: [],
+    }));
+    update((d) => {
+      d.menu.push(...items);
+      const newCats = [...new Set(items.map((m) => m.category))].filter((c) => !d.settings.menuCategories.includes(c));
+      d.settings.menuCategories.push(...newCats);
+    });
+    onDone(items.length);
+  };
+
+  return (
+    <div className="card">
+      <h2>{t('guide.manual.formTitle')}</h2>
+      <p className="muted" style={{ marginTop: 4 }}>{t('guide.manual.formIntro')}</p>
+      <div className="first-dishes">
+        {rows.map((r, i) => (
+          <div key={r.id} className="first-dish">
+            <span className="first-dish-n" aria-hidden>{i + 1}</span>
+            <Field label={t('importer.col.name')}><input value={r.name} onChange={(e) => set(r.id, { name: e.target.value })} placeholder={t(`guide.manual.example${(i % 3) + 1}`)} /></Field>
+            <Field label={t('importer.col.category')}><input list="first-dish-cats" value={r.category} onChange={(e) => set(r.id, { category: e.target.value })} /></Field>
+            <Field label={t('importer.col.price')}><NumInput value={r.price} onChange={(price) => set(r.id, { price })} /></Field>
+          </div>
+        ))}
+        <datalist id="first-dish-cats">{cats.map((c) => <option key={c} value={c} />)}</datalist>
+      </div>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" onClick={() => setRows((rs) => [...rs, blank()])}>+ {t('guide.manual.addRow')}</button>
+        <span className="spacer" />
+        <button className="btn primary" disabled={!ready.length} onClick={save}>{t('guide.manual.save', { n: ready.length })}</button>
+      </div>
+      {ready.length > 0 && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>{ready.map((r) => `${r.name} · ${money(r.price)}`).join('  ·  ')}</p>}
+      <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>{t('guide.manual.later')}</p>
     </div>
   );
 }

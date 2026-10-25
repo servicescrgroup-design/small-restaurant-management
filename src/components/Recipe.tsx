@@ -7,7 +7,8 @@ import { useI18n } from '../i18n';
 import { localDate, fmtQty, uid } from '../utils';
 import { Field, Modal, NumInput, Thumb } from './ui';
 
-const UNITS = ['lb', 'oz', 'kg', 'g', 'each', 'slice', 'L', 'ml', 'bunch', 'can', 'bag', 'pack', 'serving', 'portion', 'bowl'];
+// Metric first (Thailand weighs in grams and kilos); imperial last for anyone who still needs it
+const UNITS = ['g', 'kg', 'ml', 'L', 'each', 'slice', 'bunch', 'can', 'bag', 'pack', 'serving', 'portion', 'bowl', 'lb', 'oz'];
 
 /**
  * Searchable ingredient picker. Shows a button with the current choice; opens a floating panel with a

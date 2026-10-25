@@ -318,7 +318,8 @@ function Activity() {
 
 // ---------- Dialogs ----------
 
-const UNITS = ['lb', 'oz', 'kg', 'g', 'each', 'slice', 'case', 'gal', 'qt', 'fl oz', 'L', 'ml', 'bunch', 'can', 'bag', 'serving', 'portion'];
+// Metric first (Thailand weighs in grams and kilos); imperial last for anyone who still needs it
+const UNITS = ['g', 'kg', 'ml', 'L', 'each', 'slice', 'case', 'bunch', 'can', 'bag', 'serving', 'portion', 'lb', 'oz', 'gal', 'qt', 'fl oz'];
 
 function ItemModal({ item, isNew, onClose }: { item: InvItem; isNew: boolean; onClose: () => void }) {
   const { state, update, money } = useStore();

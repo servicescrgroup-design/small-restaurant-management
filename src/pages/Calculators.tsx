@@ -5,6 +5,7 @@ import { IngredientPicker } from '../components/Recipe';
 import { useAuth } from '../auth';
 import { unitCost } from '../inventory';
 import { Field, NumInput, Tabs } from '../components/ui';
+import { RecipeCard, type CardLine } from '../components/RecipeCard';
 import { MenuItemModal, foodCostTone } from './Menu';
 import type { MenuItem } from '../types';
 import { fmtInt, fmtQty, pct, uid } from '../utils';
@@ -51,6 +52,7 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
   const [price, setPrice] = useState(0);
   const [target, setTarget] = useState(s.targetFoodCost);
   const [adding, setAdding] = useState<MenuItem | null>(null);
+  const [plates, setPlates] = useState(1);
   const isOwner = useAuth().user?.role === 'owner';
   const items = [...state.items].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -66,8 +68,16 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
 
   const patch = (id: string, p: Partial<Line>) => setLines((ls) => ls.map((l) => (l.id === id ? ({ ...l, ...p } as Line) : l)));
   const addInv = () => items[0] && setLines((ls) => [...ls, { id: uid(), kind: 'inv', itemId: items[0].id, qty: 1 }]);
-  const addCustom = () => setLines((ls) => [...ls, { id: uid(), kind: 'custom', name: '', packPrice: 0, packQty: 1, packUnit: 'lb', useQty: 0, yieldPct: 100 }]);
+  const addCustom = () => setLines((ls) => [...ls, { id: uid(), kind: 'custom', name: '', packPrice: 0, packQty: 1, packUnit: 'kg', useQty: 0, yieldPct: 100 }]);
   const customCount = lines.filter((l) => l.kind === 'custom').length;
+  // The plate being built, as a recipe card that scales to any number of plates
+  const cardLines: CardLine[] = lines.map((l) => {
+    if (l.kind === 'inv') {
+      const it = state.items.find((x) => x.id === l.itemId);
+      return { key: l.id, name: it?.name ?? '?', qty: l.qty, unit: it?.unit ?? '', cost: lineCost(l) };
+    }
+    return { key: l.id, name: l.name || t('calc.ingredientName'), qty: l.useQty, unit: l.packUnit, note: l.yieldPct < 100 ? t('calc.recipeCard.yieldNote', { pct: l.yieldPct }) : undefined, cost: lineCost(l) };
+  });
 
   const toMenu = () => setAdding({
     id: uid(), name: name.trim() || t('calc.newDish'), category: s.menuCategories[0] ?? 'Mains', price: price || roundUp(suggested), active: true,
@@ -129,6 +139,17 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
       </div>
 
       <div className="grid">
+        <RecipeCard
+          compact
+          title={name}
+          subtitle={plate > 0 ? t('calc.recipeCard.plateCost', { amount: money(plate) }) : undefined}
+          lines={cardLines}
+          servings={plates}
+          onServings={setPlates}
+          servingsLabel={t('calc.recipeCard.plates')}
+          money={money}
+          empty={t('calc.recipeCard.emptyPlate')}
+        />
         <div className="card">
           <div className="result-box">
             <div className="muted">{t('calc.plateCost')}</div>
@@ -194,11 +215,12 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
 function YieldCalc() {
   const { money } = useStore();
   const { t } = useI18n();
-  const [apPrice, setApPrice] = useState(28);
-  const [apQty, setApQty] = useState(10);
-  const [unit, setUnit] = useState('lb');
-  const [usable, setUsable] = useState(7.2);
-  const [portion, setPortion] = useState(0.375);
+  // Example: 5 kg of pork shoulder for ฿900, 3.6 kg usable after trimming, 150 g per plate
+  const [apPrice, setApPrice] = useState(900);
+  const [apQty, setApQty] = useState(5);
+  const [unit, setUnit] = useState('kg');
+  const [usable, setUsable] = useState(3.6);
+  const [portion, setPortion] = useState(0.15);
   const yieldPct = apQty > 0 ? usable / apQty : 0;
   const apCost = apQty > 0 ? apPrice / apQty : 0;
   const epCost = yieldPct > 0 ? apCost / yieldPct : 0;
@@ -243,18 +265,19 @@ interface ScaleLine { id: string; name: string; qty: number; unit: string; cost:
 
 function Scaler() {
   const { state, money } = useStore();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const preps = state.items.filter((i) => i.kind === 'prep');
   const [origYield, setOrigYield] = useState(10);
   const [newYield, setNewYield] = useState(25);
   const [yieldUnit, setYieldUnit] = useState('servings');
   const [lines, setLines] = useState<ScaleLine[]>([{ id: uid(), name: '', qty: 0, unit: '', cost: 0 }]);
+  const [loaded, setLoaded] = useState<{ name: string; image?: string } | null>(null);
   const factor = origYield > 0 ? newYield / origYield : 0;
-  const totalCost = lines.reduce((a, l) => a + l.cost * l.qty, 0) * factor;
 
   const load = (id: string) => {
     const p = state.items.find((i) => i.id === id);
     if (!p) return;
+    setLoaded({ name: p.name, image: p.image });
     setOrigYield(p.yieldQty ?? 1);
     setYieldUnit(p.unit);
     setLines((p.recipe ?? []).map((r) => {
@@ -265,46 +288,55 @@ function Scaler() {
   const patch = (id: string, p: Partial<ScaleLine>) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...p } : l)));
 
   return (
-    <div className="card">
-      <div className="card-head">
-        <div><h2>{t('calc.tab.scale')}</h2><p>{t('calc.scaleIntro')}</p></div>
-        {preps.length > 0 && (
-          <select style={{ width: 240 }} value="" onChange={(e) => load(e.target.value)}>
-            <option value="">{t('calc.loadPrep')}</option>
-            {preps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        )}
-      </div>
-      <div className="form-grid" style={{ marginBottom: 16 }}>
-        <Field label={t('calc.origYield')}><NumInput value={origYield} onChange={setOrigYield} /></Field>
-        <Field label={t('calc.newYield')}><NumInput value={newYield} onChange={setNewYield} /></Field>
-        <Field label={t('calc.yieldUnit')}><input value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)} /></Field>
-        <div className="result-box"><div className="muted">{t('calc.scaleFactor')}</div><div className="result-big">×{factor.toFixed(2)}</div></div>
-      </div>
-      <div className="table-wrap">
-        <table className="table compact">
-          <thead><tr><th>{t('calc.col.ingredient')}</th><th>{t('calc.col.origQty')}</th><th>{t('calc.col.unit')}</th><th>{t('calc.col.costPerUnit')}</th><th className="num">{t('calc.col.scaledQty')}</th><th /></tr></thead>
-          <tbody>
-            {lines.map((l) => (
-              <tr key={l.id}>
-                <td><input value={l.name} onChange={(e) => patch(l.id, { name: e.target.value })} placeholder={t('calc.ingredientPlaceholder')} /></td>
-                <td><NumInput value={l.qty} onChange={(qty) => patch(l.id, { qty })} /></td>
-                <td><input value={l.unit} onChange={(e) => patch(l.id, { unit: e.target.value })} style={{ width: 80 }} /></td>
-                <td><NumInput value={l.cost} onChange={(cost) => patch(l.id, { cost })} /></td>
-                <td className="num"><strong>{fmtQty(Math.round(l.qty * factor * 100) / 100)}</strong> {l.unit}</td>
-                <td><button className="icon-btn" aria-label={t('common.remove')} onClick={() => setLines((ls) => ls.filter((x) => x.id !== l.id))}>✕</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button className="btn sm" style={{ marginTop: 10 }} onClick={() => setLines((ls) => [...ls, { id: uid(), name: '', qty: 0, unit: '', cost: 0 }])}>{t('calc.addLine')}</button>
-      {totalCost > 0 && (
-        <div className="result-box" style={{ marginTop: 16, maxWidth: 420 }}>
-          <div className="kv"><span>{t('calc.batchCost')}</span><strong>{money(totalCost)}</strong></div>
-          <div className="kv"><span>{t('calc.costPer', { unit: lang === 'en' ? yieldUnit.replace(/s$/, '') : yieldUnit })}</span><strong>{money(newYield ? totalCost / newYield : 0)}</strong></div>
+    <div className="grid split scale-layout">
+      <div className="card">
+        <div className="card-head">
+          <div><h2>{t('calc.tab.scale')}</h2><p>{t('calc.scaleIntro')}</p></div>
+          {preps.length > 0 && (
+            <select style={{ width: 240 }} value="" onChange={(e) => load(e.target.value)}>
+              <option value="">{t('calc.loadPrep')}</option>
+              {preps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
         </div>
-      )}
+        <div className="form-grid" style={{ marginBottom: 16 }}>
+          <Field label={t('calc.origYield')}><NumInput value={origYield} onChange={setOrigYield} /></Field>
+          <Field label={t('calc.newYield')}><NumInput value={newYield} onChange={setNewYield} /></Field>
+          <Field label={t('calc.yieldUnit')}><input value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)} /></Field>
+          <div className="result-box"><div className="muted">{t('calc.scaleFactor')}</div><div className="result-big">×{factor.toFixed(2)}</div></div>
+        </div>
+        <div className="table-wrap">
+          <table className="table compact">
+            <thead><tr><th>{t('calc.col.ingredient')}</th><th>{t('calc.col.origQty')}</th><th>{t('calc.col.unit')}</th><th>{t('calc.col.costPerUnit')}</th><th className="num">{t('calc.col.scaledQty')}</th><th /></tr></thead>
+            <tbody>
+              {lines.map((l) => (
+                <tr key={l.id}>
+                  <td><input value={l.name} onChange={(e) => patch(l.id, { name: e.target.value })} placeholder={t('calc.ingredientPlaceholder')} /></td>
+                  <td><NumInput value={l.qty} onChange={(qty) => patch(l.id, { qty })} /></td>
+                  <td><input value={l.unit} onChange={(e) => patch(l.id, { unit: e.target.value })} style={{ width: 80 }} /></td>
+                  <td><NumInput value={l.cost} onChange={(cost) => patch(l.id, { cost })} /></td>
+                  <td className="num"><strong>{fmtQty(Math.round(l.qty * factor * 100) / 100)}</strong> {l.unit}</td>
+                  <td><button className="icon-btn" aria-label={t('common.remove')} onClick={() => setLines((ls) => ls.filter((x) => x.id !== l.id))}>✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button className="btn sm" style={{ marginTop: 10 }} onClick={() => setLines((ls) => [...ls, { id: uid(), name: '', qty: 0, unit: '', cost: 0 }])}>{t('calc.addLine')}</button>
+      </div>
+      <div className="scale-card">
+        <RecipeCard
+          title={loaded?.name ?? t('calc.recipeCard.yourRecipe')}
+          subtitle={t('calc.recipeCard.scaledFrom', { from: fmtQty(origYield), unit: yieldUnit, factor: factor.toFixed(2) })}
+          image={loaded?.image}
+          lines={lines.filter((l) => l.name.trim() || l.qty).map((l) => ({ key: l.id, name: l.name || '—', qty: l.qty, unit: l.unit, cost: l.cost * l.qty }))}
+          servings={Math.max(1, Math.round(newYield))}
+          onServings={setNewYield}
+          baseServings={origYield}
+          servingsLabel={yieldUnit}
+          money={money}
+        />
+      </div>
     </div>
   );
 }

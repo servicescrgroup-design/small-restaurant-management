@@ -12,6 +12,7 @@ import Calculators from './pages/Calculators';
 import Setup from './pages/Setup';
 import Account from './pages/Account';
 import SetupGuide from './pages/SetupGuide';
+import Tour, { useStartOwnShop } from './components/Tour';
 import { TrialBanner, TrialEnded } from './components/Billing';
 import { useAccount } from './account';
 
@@ -46,7 +47,9 @@ function Shell() {
   const { user, logout } = useAuth();
   const { t } = useI18n();
   const account = useAccount();
+  const startOwnShop = useStartOwnShop();
   const role = user?.role;
+  const touring = state.isDemo && state.tour !== undefined && role === 'owner' && !state.setupGuide;
   const [requested, setRequested] = useState<Page>(fromHash);
   // Phones: the nav is a drawer opened from the top bar
   const [navOpen, setNavOpen] = useState(false);
@@ -116,10 +119,10 @@ function Shell() {
       <main className="main">
         <TrialBanner go={go} />
         {state.setupGuide && role === 'owner' ? <SetupGuide go={go} /> : <>
-        {state.isDemo && page !== 'pos' && role === 'owner' && (
+        {state.isDemo && !touring && page !== 'pos' && role === 'owner' && (
           <div className="demo-banner">
             {t('common.demo.banner')}
-            <button className="btn sm" onClick={() => go('setup')}>{t('common.demo.startFresh')}</button>
+            <button className="btn sm" onClick={startOwnShop}>{t('common.demo.startFresh')}</button>
           </div>
         )}
         {page === 'dashboard' && <Dashboard go={go} />}
@@ -131,6 +134,7 @@ function Shell() {
         {page === 'setup' && <Setup go={go} />}
         {page === 'account' && <Account go={go} />}
         </>}
+        {touring && <Tour go={go} />}
       </main>
       )}
     </div>

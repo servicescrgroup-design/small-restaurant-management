@@ -453,3 +453,21 @@ export function demoState(): AppState {
 
   return { ...partial, batches, orders, adjustments, tickets };
 }
+
+const DEMO_NAMES = ['Lotus Street Kitchen (demo)', 'ครัวถนนดอกบัว (ตัวอย่าง)'];
+
+/**
+ * A blank store to replace the current one. Leaving the demo also drops the demo staff (so the owner
+ * creates their own PIN next) and opens the setup guide; a real store keeps its settings and staff.
+ */
+export function freshStart(prev: AppState): AppState {
+  const fresh = emptyState();
+  if (prev.isDemo) {
+    if (!DEMO_NAMES.includes(prev.settings.storeName)) fresh.settings.storeName = prev.settings.storeName;
+    fresh.setupGuide = true;
+  } else {
+    fresh.settings = { ...fresh.settings, ...prev.settings, nextOrderNumber: 1001 };
+    fresh.staff = prev.staff;
+  }
+  return fresh;
+}

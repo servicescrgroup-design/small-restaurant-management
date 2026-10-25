@@ -279,17 +279,19 @@ function CreateBusiness({ email, onCreated, onSignOut, onCancel }: { email: stri
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [local, setLocal] = useState<AppState | null>(null);
-  const [start, setStart] = useState<StartWith>('empty');
+  // New owners tour the demo shop first, then clear it and set up their own
+  const [start, setStart] = useState<StartWith>('demo');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     readLocalData().then(({ state }) => {
-      if (state && (state.menu?.length || state.orders?.length)) {
+      // Offer this browser's own shop (not a leftover demo, which the tour already covers)
+      if (state && !state.isDemo && (state.menu?.length || state.orders?.length)) {
         const s = normalize(state);
         setLocal(s);
         setStart('device');
-        if (!s.isDemo) setName(s.settings.storeName);
+        setName(s.settings.storeName);
       }
     });
   }, []);
@@ -303,6 +305,7 @@ function CreateBusiness({ email, onCreated, onSignOut, onCancel }: { email: stri
       base.settings.storeName = name.trim();
       if (start !== 'demo') base.isDemo = false;
       if (start === 'empty') base.setupGuide = true;
+      if (start === 'demo') base.tour = 0;
       onCreated(await createBusiness(name.trim(), base));
     } catch (err) {
       setError(String((err as { message?: string })?.message ?? err));
@@ -327,13 +330,13 @@ function CreateBusiness({ email, onCreated, onSignOut, onCancel }: { email: stri
                 <span>{t('account.start.deviceHint', { name: local.settings.storeName, dishes: local.menu.length, orders: local.orders.length })}</span>
               </button>
             )}
-            <button type="button" className={`start-option ${start === 'empty' ? 'active' : ''}`} onClick={() => setStart('empty')}>
-              <strong>✨ {t('account.start.empty')}</strong>
-              <span>{t('account.start.emptyHint')}</span>
-            </button>
             <button type="button" className={`start-option ${start === 'demo' ? 'active' : ''}`} onClick={() => setStart('demo')}>
               <strong>🍜 {t('account.start.demo')}</strong>
               <span>{t('account.start.demoHint')}</span>
+            </button>
+            <button type="button" className={`start-option ${start === 'empty' ? 'active' : ''}`} onClick={() => setStart('empty')}>
+              <strong>✨ {t('account.start.empty')}</strong>
+              <span>{t('account.start.emptyHint')}</span>
             </button>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ImportTab from './ImportTab';
 import type { Page } from '../App';
 import { useStore } from '../store';
-import { demoState, emptyState } from '../demo';
+import { demoState, freshStart } from '../demo';
 import { ChipEditor, Empty, Field, Modal, NumInput, Pill, Tabs } from '../components/ui';
 import { findByPin, isValidPin, makePinCreds, useAuth } from '../auth';
 import type { AppState, Settings, Staff, StaffRole } from '../types';
@@ -183,12 +183,7 @@ function DataTab() {
 
   const startFresh = () => {
     if (!confirm(t(state.isDemo ? 'setup.data.confirmFreshDemo' : 'setup.data.confirmFresh'))) return;
-    const fresh = emptyState();
-    if (!state.isDemo) {
-      fresh.settings = { ...fresh.settings, ...state.settings, nextOrderNumber: 1001 };
-      fresh.staff = state.staff;
-    }
-    replace(fresh);
+    replace(freshStart(state));
     setMsg({ tone: 'ok', text: t('setup.data.freshReady') });
   };
 

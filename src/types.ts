@@ -221,6 +221,8 @@ export interface AppState {
   isDemo: boolean;
   /** Show the step-by-step setup guide (set when a new business starts blank) */
   setupGuide?: boolean;
+  /** Step of the demo-shop tour shown to new sign-ups (absent once finished or skipped) */
+  tour?: number;
   settings: Settings;
   staff: Staff[];
   tables: Table[];

@@ -39,7 +39,7 @@ export default defineMessages(
     checklistDone: '{done} of {total} done',
     howTitle: 'How it fits together',
     'how.items.term': 'Inventory items',
-    'how.items.text': ' are what you buy (beef by the lb, buns each).',
+    'how.items.text': ' are what you buy (beef by the kg, buns each).',
     'how.batches.term': 'Batches',
     'how.batches.text': ' are each delivery or prep run, with its own cost and expiration date. The oldest-expiring batch is always used first.',
     'how.prep.term': 'Prep items',
