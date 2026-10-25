@@ -75,7 +75,7 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
   });
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1.6fr) minmax(280px, 1fr)', alignItems: 'start' }}>
+    <div className="grid split">
       <div className="card">
         <Field label={t('calc.dishName')}><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('calc.dishPlaceholder')} /></Field>
         <h3 style={{ margin: '18px 0 8px' }}>{t('calc.perPlate')}</h3>

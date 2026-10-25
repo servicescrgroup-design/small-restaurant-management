@@ -48,6 +48,8 @@ function Shell() {
   const account = useAccount();
   const role = user?.role;
   const [requested, setRequested] = useState<Page>(fromHash);
+  // Phones: the nav is a drawer opened from the top bar
+  const [navOpen, setNavOpen] = useState(false);
   // Staff who land on an owner-only page (or the default dashboard) go to the POS.
   const page: Page = canAccess(role, requested) ? requested : 'pos';
 
@@ -57,11 +59,28 @@ function Shell() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const go = (p: Page) => { window.location.hash = p; setRequested(p); };
+  const go = (p: Page) => { window.location.hash = p; setRequested(p); setNavOpen(false); };
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navOpen]);
 
   return (
     <div className={`app ${page === 'pos' ? 'is-pos' : ''}`}>
-      <nav className="sidebar">
+      <header className="mobile-bar">
+        <span className="brand-mark" aria-hidden>M</span>
+        <div className="mobile-bar-title">
+          <strong>{t(`common.nav.${page}`)}</strong>
+          <span>{state.settings.storeName}</span>
+        </div>
+        <button className="mobile-menu-btn" aria-label={t('common.nav.open')} aria-expanded={navOpen} onClick={() => setNavOpen(true)}>☰</button>
+      </header>
+      {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
+      <nav className={`sidebar ${navOpen ? 'open' : ''}`}>
+        <button className="nav-close" aria-label={t('common.close')} onClick={() => setNavOpen(false)}>✕</button>
         <div className="brand">
           <span className="brand-mark">M</span>
           <div>

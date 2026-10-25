@@ -4,7 +4,7 @@ import {
   cloudEnabled, createBusiness, getSession, listBusinesses, loadSubscription, onAuthChange, sendPasswordReset, signIn, signOut, signUp,
   watchSubscription, type BusinessSummary,
 } from './cloud';
-import { accessOf, PLANS, TRIAL_DAYS, YEARLY_SAVING, type Subscription } from './plans';
+import { accessOf, fmtPlanPrice, planCurrency, planPrices, TRIAL_DAYS, type Subscription } from './plans';
 import { cloudBackend, localBackend, normalize, readLocalData, StoreProvider } from './store';
 import { LangSwitch, useI18n } from './i18n';
 import { ThemeSwitch } from './theme';
@@ -198,14 +198,16 @@ function SignInPage({ go, reset }: { go: (p: AuthPage) => void; reset: boolean }
 }
 
 function SignUpPage({ go }: { go: (p: AuthPage) => void }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const errorText = useAuthErrors();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'bad' | 'ok'; text: string } | null>(null);
-  const baht = (n: number) => `฿${n.toLocaleString()}`;
+  const cur = planCurrency(lang);
+  const prices = planPrices(cur);
+  const money = (n: number) => fmtPlanPrice(n, cur);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,12 +236,12 @@ function SignUpPage({ go }: { go: (p: AuthPage) => void }) {
           <div className="plan-cards">
             <div className="plan-card">
               <span className="plan-name">{t('account.plan.monthly')}</span>
-              <span className="plan-price">{baht(PLANS.monthly.price)}<small>/{t('account.perMonth')}</small></span>
+              <span className="plan-price">{money(prices.monthly)}<small>/{t('account.perMonth')}</small></span>
             </div>
             <div className="plan-card best">
-              <span className="plan-tag">{t('account.save', { amount: baht(YEARLY_SAVING) })}</span>
+              <span className="plan-tag">{t('account.save', { amount: money(prices.yearlySaving) })}</span>
               <span className="plan-name">{t('account.plan.yearly')}</span>
-              <span className="plan-price">{baht(PLANS.yearly.price)}<small>/{t('account.perYear')}</small></span>
+              <span className="plan-price">{money(prices.yearly)}<small>/{t('account.perYear')}</small></span>
             </div>
           </div>
           <ul className="feature-list">

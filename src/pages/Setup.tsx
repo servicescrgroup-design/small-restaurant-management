@@ -241,7 +241,7 @@ function StaffTab() {
   const list = [...state.staff].sort((a, b) => Number(b.active) - Number(a.active) || a.role.localeCompare(b.role) || a.name.localeCompare(b.name));
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', alignItems: 'start' }}>
+    <div className="grid split wide-first">
       <div className="card">
         <div className="card-head">
           <div><h2>{t('setup.staff.title')}</h2><p>{t('setup.staff.intro')}</p></div>

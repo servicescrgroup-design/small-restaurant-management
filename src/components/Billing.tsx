@@ -2,12 +2,10 @@ import type { Page } from '../App';
 import { useAccount } from '../account';
 import { useAuth } from '../auth';
 import { useI18n } from '../i18n';
-import { PAYMENTS_ENABLED, PLANS, TRIAL_DAYS, YEARLY_SAVING, type PlanId } from '../plans';
+import { fmtPlanPrice, PAYMENTS_ENABLED, PLANS, planCurrency, planPrices, TRIAL_DAYS, type PlanId } from '../plans';
 import { useStore } from '../store';
 import { fmtDate, localDate } from '../utils';
 import { Pill } from './ui';
-
-const baht = (n: number) => `฿${n.toLocaleString()}`;
 
 /** Save a copy of everything, so a business can always take its data with it. */
 export function downloadBackup(state: unknown, name: string) {
@@ -64,16 +62,19 @@ export function PlanCard() {
 }
 
 function PlanChoices({ current }: { current: PlanId | null }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const cur = planCurrency(lang);
+  const p = planPrices(cur);
+  const money = (n: number) => fmtPlanPrice(n, cur);
   return (
     <>
       <div className="plan-cards">
         {(Object.keys(PLANS) as PlanId[]).map((id) => (
           <div key={id} className={`plan-card ${id === 'yearly' ? 'best' : ''} ${current === id ? 'current' : ''}`}>
-            {id === 'yearly' && <span className="plan-tag">{t('account.save', { amount: baht(YEARLY_SAVING) })}</span>}
+            {id === 'yearly' && <span className="plan-tag">{t('account.save', { amount: money(p.yearlySaving) })}</span>}
             <span className="plan-name">{t(`account.plan.${id}`)}</span>
-            <span className="plan-price">{baht(PLANS[id].price)}<small>/{t(id === 'monthly' ? 'account.perMonth' : 'account.perYear')}</small></span>
-            {id === 'yearly' && <span className="muted" style={{ fontSize: 12.5 }}>{t('account.perMonthEquiv', { amount: baht(Math.round(PLANS.yearly.price / 12)) })}</span>}
+            <span className="plan-price">{money(p[id])}<small>/{t(id === 'monthly' ? 'account.perMonth' : 'account.perYear')}</small></span>
+            {id === 'yearly' && <span className="muted" style={{ fontSize: 12.5 }}>{t('account.perMonthEquiv', { amount: money(p.yearlyPerMonth) })}</span>}
             <button className="btn primary" disabled={!PAYMENTS_ENABLED || current === id}>
               {current === id ? t('account.currentPlan') : t('account.subscribe')}
             </button>

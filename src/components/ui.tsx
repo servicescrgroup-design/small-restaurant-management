@@ -171,7 +171,8 @@ export function BarChart({ data, format, height = 180 }: { data: { label: string
   const max = Math.max(1, ...data.map((d) => d.value));
   const w = 100 / Math.max(1, data.length);
   return (
-    <div className="barchart" style={{ height }}>
+    // Many bars → phones show every 2nd or 4th label so they don't overlap
+    <div className={`barchart ${data.length > 20 ? 'xdense' : data.length > 12 ? 'dense' : ''}`} style={{ height }}>
       {data.map((d, i) => (
         <div key={i} className="bar-col" style={{ width: `${w}%` }} title={`${d.label}: ${format(d.value)}`}>
           <div className="bar-track">

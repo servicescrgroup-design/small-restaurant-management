@@ -1,14 +1,36 @@
 /** Pricing for business accounts. Keep in sync with supabase/migrations/0002 and (later) the Stripe prices. */
 export const TRIAL_DAYS = 30;
 
+/** Prices are shown in baht in Thai and in US dollars in English. */
+export type PlanCurrency = 'THB' | 'USD';
+export const planCurrency = (lang: string): PlanCurrency => (lang === 'th' ? 'THB' : 'USD');
+
 export const PLANS = {
-  monthly: { price: 99, months: 1 },
-  yearly: { price: 999, months: 12 },
+  monthly: { months: 1, price: { THB: 99, USD: 2.99 } },
+  yearly: { months: 12, price: { THB: 999, USD: 29.99 } },
 } as const;
 export type PlanId = keyof typeof PLANS;
 
-/** ฿99 × 12 − ฿999 */
-export const YEARLY_SAVING = PLANS.monthly.price * 12 - PLANS.yearly.price;
+const cents = (n: number) => Math.round(n * 100) / 100;
+
+/** Plan prices in one currency, plus the yearly saving (12 × monthly − yearly) and the yearly price per month. */
+export function planPrices(cur: PlanCurrency) {
+  const monthly = PLANS.monthly.price[cur];
+  const yearly = PLANS.yearly.price[cur];
+  return {
+    monthly,
+    yearly,
+    yearlySaving: cents(monthly * 12 - yearly),
+    yearlyPerMonth: cur === 'THB' ? Math.round(yearly / 12) : cents(yearly / 12),
+  };
+}
+
+/** ฿99, ฿1,188 · $2.99, $30 */
+export function fmtPlanPrice(n: number, cur: PlanCurrency) {
+  const digits = Number.isInteger(n) ? 0 : 2;
+  const s = n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return cur === 'THB' ? `฿${s}` : `$${s}`;
+}
 
 /** Online payment isn't switched on yet; flip this when Stripe is connected. */
 export const PAYMENTS_ENABLED = false;

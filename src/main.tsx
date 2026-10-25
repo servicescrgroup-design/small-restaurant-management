@@ -6,6 +6,7 @@ import { AccountGate } from './account';
 import App from './App';
 import './theme';
 import './styles.css';
+import { watchTableLabels } from './tableLabels';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -18,3 +19,5 @@ createRoot(document.getElementById('root')!).render(
     </I18nProvider>
   </StrictMode>,
 );
+
+watchTableLabels();
