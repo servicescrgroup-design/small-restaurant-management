@@ -76,12 +76,12 @@ const L = (en: string, th: string) => (getLang() === 'th' ? th : en);
 
 /** Demo PINs: owner 1234, Somchai 1111, Ploy 2222 */
 export const demoStaff = (): Staff[] => [
-  { ...newStaff(L('Noi (Owner)', 'เจ๊น้อย (เจ้าของ)'), 'owner', '1234'), id: 'demo-owner' },
+  { ...newStaff(L('Owner', 'เจ้าของร้าน'), 'owner', '1234'), id: 'demo-owner' },
   { ...newStaff(L('Somchai', 'สมชาย'), 'staff', '1111'), id: 'demo-sam' },
   { ...newStaff(L('Ploy', 'พลอย'), 'staff', '2222'), id: 'demo-jordan' },
 ];
 
-/** Demo: a small Thai noodle shop in Bangkok, priced in baht. */
+/** Demo: a made-up small Thai noodle and rice shop (not a real business), priced in baht. */
 export function demoState(): AppState {
   const today = localDate();
   const FR = L('Walk-in fridge', 'ตู้เย็น'), FZ = L('Freezer', 'ช่องแช่แข็ง'), DRY = L('Dry store', 'ห้องเก็บของแห้ง'), PREP = L('Prep station', 'โต๊ะเตรียม');
@@ -90,7 +90,7 @@ export function demoState(): AppState {
     sauce: L('Sauces & seasoning', 'ซอสและเครื่องปรุง'), dry: L('Dry goods', 'ของแห้ง'), drinks: L('Drinks', 'เครื่องดื่ม'),
     prep: L('Prep', 'ของเตรียม'), supplies: L('Supplies', 'วัสดุสิ้นเปลือง'), fruit: L('Fruit & dessert', 'ผลไม้และของหวาน'),
   };
-  const MKT = L('Or Tor Kor market', 'ตลาด อ.ต.ก.'), MAKRO = 'Makro', FARM = L('Ari fresh market', 'ตลาดสดอารีย์');
+  const MKT = L('Or Tor Kor market', 'ตลาด อ.ต.ก.'), MAKRO = 'Makro', FARM = L('Fresh market', 'ตลาดสด');
   const tabs = { food: L('Food', 'อาหาร'), drinks: L('Drinks', 'เครื่องดื่ม'), desserts: L('Desserts', 'ของหวาน') };
   const cats = {
     soup: L('Noodle soups', 'ก๋วยเตี๋ยวน้ำ'), fried: L('Stir-fried noodles', 'ผัด'), rice: L('Rice dishes', 'จานข้าว'),
@@ -99,9 +99,9 @@ export function demoState(): AppState {
 
   const settings: Settings = {
     ...defaultSettings(),
-    storeName: L('Jay Noi Noodles (demo)', 'ก๋วยเตี๋ยวเจ๊น้อย (ตัวอย่าง)'),
-    address: L('12 Soi Ari 1, Phaya Thai, Bangkok 10400', '12 ซอยอารีย์ 1 แขวงพญาไท กรุงเทพฯ 10400'),
-    phone: '02-123-4567',
+    storeName: L('Lotus Street Kitchen (demo)', 'ครัวถนนดอกบัว (ตัวอย่าง)'),
+    address: L('1 Example Road, Sample District, Bangkok 10000', '1 ถนนตัวอย่าง เขตตัวอย่าง กรุงเทพฯ 10000'),
+    phone: '02-000-0000',
     currency: 'THB',
     taxRate: 7,
     targetFoodCost: 40,
@@ -111,7 +111,7 @@ export function demoState(): AppState {
     storageLocations: [FR, FZ, DRY, PREP],
     paymentMethods: [L('Cash', 'เงินสด'), L('PromptPay QR', 'พร้อมเพย์ QR'), L('Card', 'บัตร'), 'LINE MAN / Grab'],
     paymentFees: { [L('Card', 'บัตร')]: { pct: 3, fixed: 0 } },
-    receiptFooter: L('Thank you — see you again! ขอบคุณค่ะ', 'ขอบคุณที่อุดหนุนค่ะ แล้วพบกันใหม่'),
+    receiptFooter: L('Thank you — see you again! ขอบคุณค่ะ', 'ขอบคุณที่ใช้บริการค่ะ แล้วพบกันใหม่'),
   };
 
   const items: InvItem[] = [
@@ -151,7 +151,7 @@ export function demoState(): AppState {
     raw('cups', L('Cups + lids', 'แก้วพร้อมฝา'), 'each', C.supplies, DRY, 100, 365, 3, MAKRO),
     raw('bowls', L('Take-away bowls', 'ถ้วยกลับบ้าน'), 'each', C.supplies, DRY, 100, 365, 4, MAKRO),
     {
-      id: 'broth', name: L('Pork bone broth', 'น้ำซุปกระดูกหมู'), kind: 'prep', unit: 'L', category: C.prep, location: FR,
+      id: 'broth', name: L('House bone broth', 'น้ำซุปกระดูกประจำร้าน'), kind: 'prep', unit: 'L', category: C.prep, location: FR,
       parLevel: 10, shelfLifeDays: 2, defaultCost: 0, yieldQty: 20,
       recipe: [{ itemId: 'bones', qty: 6 }, { itemId: 'garlic', qty: 0.2 }, { itemId: 'herbs', qty: 0.2 }, { itemId: 'palmsugar', qty: 0.1 }],
     },
@@ -166,9 +166,9 @@ export function demoState(): AppState {
       recipe: [{ itemId: 'tamarind', qty: 1 }, { itemId: 'palmsugar', qty: 1 }, { itemId: 'fishsauce', qty: 0.6 }],
     },
     {
-      id: 'kapraobox', name: L('Basil pork rice box (packed)', 'ข้าวกะเพราหมูสับกล่อง (แพ็กแล้ว)'), kind: 'prep', unit: L('box', 'กล่อง'), category: C.prep, location: FR,
+      id: 'kapraobox', name: L('Basil chicken rice box (packed)', 'ข้าวกะเพราไก่กล่อง (แพ็กแล้ว)'), kind: 'prep', unit: L('box', 'กล่อง'), category: C.prep, location: FR,
       parLevel: 8, shelfLifeDays: 1, defaultCost: 0, yieldQty: 20,
-      recipe: [{ itemId: 'rice', qty: 5 }, { itemId: 'porkmince', qty: 1.8 }, { itemId: 'basil', qty: 0.2 }, { itemId: 'chili', qty: 0.08 }, { itemId: 'garlic', qty: 0.08 }, { itemId: 'eggs', qty: 20 }, { itemId: 'bowls', qty: 20 }],
+      recipe: [{ itemId: 'rice', qty: 5 }, { itemId: 'chicken', qty: 2 }, { itemId: 'basil', qty: 0.2 }, { itemId: 'chili', qty: 0.08 }, { itemId: 'garlic', qty: 0.08 }, { itemId: 'eggs', qty: 20 }, { itemId: 'bowls', qty: 20 }],
     },
     {
       id: 'teabrew', name: L('Brewed Thai tea', 'ชาไทยต้ม'), kind: 'prep', unit: 'cup', category: C.prep, location: FR,
@@ -207,10 +207,25 @@ export function demoState(): AppState {
     ],
   });
 
+  // Original little illustrations for the demo dishes (drawn in code; no photos of any real shop or dish).
+  type Art = 'soup' | 'fried' | 'rice' | 'side' | 'drink' | 'dessert';
+  const art = (kind: Art, c1: string, c2: string): string => {
+    const bodies: Record<Art, string> = {
+      soup: `<path d="M18 50h60a30 28 0 0 1-60 0z" fill="${c1}"/><ellipse cx="48" cy="50" rx="30" ry="7" fill="${c2}"/><path d="M36 42c-4-6 4-8 0-14M48 40c-4-6 4-8 0-14M60 42c-4-6 4-8 0-14" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".8"/><path d="M62 24l18 30M68 22l18 30" stroke="#b98a5b" stroke-width="3" stroke-linecap="round"/>`,
+      fried: `<ellipse cx="48" cy="56" rx="36" ry="17" fill="#fff"/><ellipse cx="48" cy="54" rx="29" ry="12" fill="${c2}" opacity=".35"/><path d="M26 54c8-14 14 8 22-4s14 8 22-2M30 60c8-8 12 6 20-2s12 6 18-2" stroke="${c1}" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="64" cy="46" r="6" fill="#f08a5d"/><path d="M30 44l8 4" stroke="#6fb36b" stroke-width="3" stroke-linecap="round"/>`,
+      rice: `<path d="M14 54h68a34 26 0 0 1-68 0z" fill="${c1}"/><path d="M24 54c0-22 48-22 48 0z" fill="#fff"/><ellipse cx="62" cy="40" rx="13" ry="9" fill="#fff"/><circle cx="62" cy="40" r="5" fill="#f5c542"/><path d="M30 44l6 3M40 38l6 3" stroke="${c2}" stroke-width="3" stroke-linecap="round"/>`,
+      side: `<ellipse cx="48" cy="60" rx="34" ry="13" fill="${c1}"/><circle cx="34" cy="48" r="10" fill="${c2}"/><circle cx="54" cy="46" r="10" fill="${c2}"/><circle cx="46" cy="58" r="10" fill="${c2}"/><circle cx="66" cy="56" r="9" fill="${c2}"/>`,
+      drink: `<path d="M30 22h36l-5 54H35z" fill="${c1}" opacity=".9"/><path d="M33 40h30l-2 36H35z" fill="${c2}"/><rect x="38" y="46" width="9" height="9" rx="2" fill="#fff" opacity=".6"/><rect x="50" y="54" width="9" height="9" rx="2" fill="#fff" opacity=".6"/><path d="M58 10l-8 36" stroke="#e8667a" stroke-width="4" stroke-linecap="round"/>`,
+      dessert: `<ellipse cx="48" cy="62" rx="36" ry="13" fill="#fff"/><path d="M22 58c4-20 44-20 52 0-8 8-44 8-52 0z" fill="${c1}"/><path d="M28 50l10-8 8 12zM44 50l10-9 8 12zM58 54l8-8 6 10z" fill="${c2}"/>`,
+    };
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="14" fill="#f3efe6"/>${bodies[kind]}</svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  };
+
   const menu: MenuItem[] = [
-    { id: 'porknoodle', name: L('Pork Noodle Soup', 'ก๋วยเตี๋ยวหมู'), tab: tabs.food, category: cats.soup, price: 60, active: true,
-      description: L('Pork bone broth with sliced pork, pork balls and bean sprouts', 'น้ำซุปกระดูกหมู หมูสไลซ์ ลูกชิ้นหมู ถั่วงอก'),
-      recipe: [{ itemId: 'broth', qty: 0.35 }, { itemId: 'porkslice', qty: 0.05 }, { itemId: 'porkballs', qty: 0.04 }, { itemId: 'sprouts', qty: 0.03 }, { itemId: 'herbs', qty: 0.005 }],
+    { id: 'porknoodle', name: L('Chicken Noodle Soup', 'ก๋วยเตี๋ยวไก่'), tab: tabs.food, category: cats.soup, price: 55, active: true, image: art('soup', '#d9a35b', '#f2d58a'),
+      description: L('Clear bone broth with sliced chicken, fish balls and bean sprouts', 'น้ำซุปกระดูกใส ไก่สไลซ์ ลูกชิ้นปลา ถั่วงอก'),
+      recipe: [{ itemId: 'broth', qty: 0.35 }, { itemId: 'chicken', qty: 0.05 }, { itemId: 'fishballs', qty: 0.04 }, { itemId: 'sprouts', qty: 0.03 }, { itemId: 'herbs', qty: 0.005 }],
       optionGroups: [
         noodleGroup('pn'),
         { id: 'pn-soup', name: L('Soup', 'น้ำซุป'), required: true, multi: false, options: [
@@ -220,48 +235,42 @@ export function demoState(): AppState {
         ] },
         sizeGroup('pn'),
         { id: 'pn-extra', name: L('Add-ons', 'เพิ่มเติม'), required: false, multi: true, options: [
-          opt('pn-moremeat', L('Extra pork', 'เพิ่มหมู'), 20, [{ itemId: 'porkslice', qty: 0.05 }]),
+          opt('pn-moremeat', L('Extra chicken', 'เพิ่มไก่'), 20, [{ itemId: 'chicken', qty: 0.05 }]),
           opt('pn-egg', L('Soft-boiled egg', 'ไข่ต้ม'), 10, [{ itemId: 'eggs', qty: 1 }]),
         ] },
       ] },
-    { id: 'boat', name: L('Boat Noodles', 'ก๋วยเตี๋ยวเรือ'), tab: tabs.food, category: cats.soup, price: 20, active: true,
-      description: L('Small rich bowls — most people order 3–5', 'ชามเล็ก น้ำข้น ส่วนใหญ่สั่ง 3–5 ชาม'),
-      recipe: [{ itemId: 'broth', qty: 0.15 }, { itemId: 'morningglory', qty: 0.015 }, { itemId: 'garlic', qty: 0.002 }, { itemId: 'palmsugar', qty: 0.004 }],
-      optionGroups: [
-        noodleGroup('bt', 0.4),
-        { id: 'bt-meat', name: L('Meat', 'เนื้อสัตว์'), required: true, multi: false, options: [
-          opt('bt-pork', L('Pork', 'หมู'), 0, [{ itemId: 'porkslice', qty: 0.02 }]),
-          opt('bt-beef', L('Beef', 'เนื้อ'), 5, [{ itemId: 'beef', qty: 0.02 }]),
-        ] },
-      ] },
-    { id: 'tomyumgoong', name: L('Tom Yum Shrimp Noodles', 'ก๋วยเตี๋ยวต้มยำกุ้ง'), tab: tabs.food, category: cats.soup, price: 90, active: true,
+    { id: 'boat', name: L('Yen Ta Fo Noodles', 'เย็นตาโฟ'), tab: tabs.food, category: cats.soup, price: 65, active: true, image: art('soup', '#c9657a', '#f0a3b3'),
+      description: L('Pink-sauce noodle soup with fish balls and morning glory', 'ก๋วยเตี๋ยวน้ำซุปสีชมพู ลูกชิ้นปลา ผักบุ้ง'),
+      recipe: [{ itemId: 'broth', qty: 0.25 }, { itemId: 'fishballs', qty: 0.05 }, { itemId: 'morningglory', qty: 0.03 }, { itemId: 'palmsugar', qty: 0.004 }],
+      optionGroups: [noodleGroup('bt'), sizeGroup('bt')] },
+    { id: 'tomyumgoong', name: L('Tom Yum Seafood Noodles', 'ก๋วยเตี๋ยวต้มยำทะเล'), tab: tabs.food, category: cats.soup, price: 95, active: true, image: art('soup', '#d9663a', '#f5a27a'),
       recipe: [{ itemId: 'broth', qty: 0.35 }, { itemId: 'tomyum', qty: 1 }, { itemId: 'shrimp', qty: 0.06 }, { itemId: 'fishballs', qty: 0.03 }, { itemId: 'morningglory', qty: 0.02 }],
       optionGroups: [noodleGroup('ty'), sizeGroup('ty', 20)] },
-    { id: 'padthai', name: L('Pad Thai', 'ผัดไทย'), tab: tabs.food, category: cats.fried, price: 70, active: true,
+    { id: 'padthai', name: L('Pad Thai', 'ผัดไทย'), tab: tabs.food, category: cats.fried, price: 75, active: true, image: art('fried', '#e0a04a', '#f2d9a4'),
       recipe: [{ itemId: 'senlek', qty: 0.13 }, { itemId: 'eggs', qty: 1 }, { itemId: 'sprouts', qty: 0.04 }, { itemId: 'peanuts', qty: 0.015 }, { itemId: 'padthaisauce', qty: 1 }, { itemId: 'lime', qty: 0.5 }],
       optionGroups: [proteinGroup('pt', 0.07), sizeGroup('pt')] },
-    { id: 'padseeew', name: L('Pad See Ew', 'ผัดซีอิ๊ว'), tab: tabs.food, category: cats.fried, price: 65, active: true,
-      recipe: [{ itemId: 'senyai', qty: 0.15 }, { itemId: 'kale', qty: 0.05 }, { itemId: 'eggs', qty: 1 }, { itemId: 'garlic', qty: 0.005 }],
+    { id: 'padseeew', name: L('Rad Na (gravy noodles)', 'ราดหน้า'), tab: tabs.food, category: cats.fried, price: 70, active: true, image: art('fried', '#7fae5b', '#cfe3b5'),
+      recipe: [{ itemId: 'senyai', qty: 0.15 }, { itemId: 'kale', qty: 0.06 }, { itemId: 'garlic', qty: 0.005 }, { itemId: 'fishsauce', qty: 0.01 }],
       optionGroups: [proteinGroup('ps', 0.08), sizeGroup('ps')] },
-    { id: 'kaprao', name: L('Holy Basil Pork on Rice', 'ข้าวกะเพราหมูสับ'), tab: tabs.food, category: cats.rice, price: 60, active: true,
-      recipe: [{ itemId: 'rice', qty: 0.25 }, { itemId: 'porkmince', qty: 0.1 }, { itemId: 'basil', qty: 0.01 }, { itemId: 'chili', qty: 0.005 }, { itemId: 'garlic', qty: 0.005 }],
+    { id: 'kaprao', name: L('Basil Chicken on Rice', 'ข้าวกะเพราไก่'), tab: tabs.food, category: cats.rice, price: 65, active: true, image: art('rice', '#c97a4a', '#4f8f4a'),
+      recipe: [{ itemId: 'rice', qty: 0.25 }, { itemId: 'chicken', qty: 0.1 }, { itemId: 'basil', qty: 0.01 }, { itemId: 'chili', qty: 0.005 }, { itemId: 'garlic', qty: 0.005 }],
       optionGroups: [
         { id: 'kp-spice', name: L('Spice level', 'ระดับความเผ็ด'), required: true, multi: false, options: [
           opt('kp-mild', L('Not spicy', 'ไม่เผ็ด')), opt('kp-med', L('Medium', 'เผ็ดกลาง')), opt('kp-hot', L('Thai spicy', 'เผ็ดมาก')),
         ] },
         sizeGroup('kp'), friedEgg('kp'),
       ] },
-    { id: 'friedrice', name: L('Fried Rice', 'ข้าวผัด'), tab: tabs.food, category: cats.rice, price: 60, active: true,
+    { id: 'friedrice', name: L('Fried Rice', 'ข้าวผัด'), tab: tabs.food, category: cats.rice, price: 65, active: true, image: art('rice', '#d1a24f', '#e8c76a'),
       recipe: [{ itemId: 'rice', qty: 0.28 }, { itemId: 'eggs', qty: 1 }, { itemId: 'garlic', qty: 0.005 }, { itemId: 'herbs', qty: 0.005 }],
       optionGroups: [proteinGroup('fr', 0.07), sizeGroup('fr'), friedEgg('fr')] },
-    { id: 'kaprao-box', name: L('Basil Pork Box — grab & go', 'ข้าวกะเพรากล่อง พร้อมรับ'), tab: tabs.food, category: cats.rice, price: 55, active: true,
+    { id: 'kaprao-box', name: L('Basil Chicken Box — grab & go', 'ข้าวกะเพราไก่กล่อง พร้อมรับ'), tab: tabs.food, category: cats.rice, price: 60, active: true, image: art('rice', '#b86f45', '#5a9a52'),
       description: L('Packed this morning with a fried egg — sold from ready stock', 'แพ็กเช้านี้ พร้อมไข่ดาว ขายจากสต็อกที่ทำไว้'),
       recipe: [{ itemId: 'kapraobox', qty: 1 }] },
-    { id: 'porkballs', name: L('Fried Pork Balls', 'ลูกชิ้นหมูทอด'), tab: tabs.food, category: cats.sides, price: 40, active: true,
-      recipe: [{ itemId: 'porkballs', qty: 0.1 }] },
-    { id: 'plainrice', name: L('Steamed Rice', 'ข้าวสวย'), tab: tabs.food, category: cats.sides, price: 10, active: true,
+    { id: 'porkballs', name: L('Fried Fish Balls', 'ลูกชิ้นปลาทอด'), tab: tabs.food, category: cats.sides, price: 45, active: true, image: art('side', '#e6dccb', '#d9a35b'),
+      recipe: [{ itemId: 'fishballs', qty: 0.1 }] },
+    { id: 'plainrice', name: L('Steamed Rice', 'ข้าวสวย'), tab: tabs.food, category: cats.sides, price: 12, active: true, image: art('rice', '#cfc9bd', '#9aa59a'),
       recipe: [{ itemId: 'rice', qty: 0.2 }] },
-    { id: 'thaitea', name: L('Thai Iced Tea', 'ชาเย็น'), tab: tabs.drinks, category: cats.drinks, price: 35, active: true,
+    { id: 'thaitea', name: L('Thai Iced Tea', 'ชาเย็น'), tab: tabs.drinks, category: cats.drinks, price: 40, active: true, image: art('drink', '#e8a24c', '#d9772e'),
       recipe: [{ itemId: 'teabrew', qty: 1 }, { itemId: 'ice', qty: 0.2 }, { itemId: 'cups', qty: 1 }],
       optionGroups: [
         { id: 'tt-sweet', name: L('Sweetness', 'ความหวาน'), required: true, multi: false, options: [
@@ -271,9 +280,9 @@ export function demoState(): AppState {
           opt('tt-reg', L('Regular', 'ปกติ')), opt('tt-large', L('Large', 'แก้วใหญ่'), 10, [], 1.4),
         ] },
       ] },
-    { id: 'water', name: L('Drinking Water', 'น้ำเปล่า'), tab: tabs.drinks, category: cats.drinks, price: 15, active: true,
+    { id: 'water', name: L('Drinking Water', 'น้ำเปล่า'), tab: tabs.drinks, category: cats.drinks, price: 12, active: true, image: art('drink', '#bfe3f2', '#8cc8e6'),
       recipe: [{ itemId: 'water', qty: 1 }] },
-    { id: 'mango', name: L('Mango Sticky Rice', 'ข้าวเหนียวมะม่วง'), tab: tabs.desserts, category: cats.desserts, price: 80, active: true,
+    { id: 'mango', name: L('Mango Sticky Rice', 'ข้าวเหนียวมะม่วง'), tab: tabs.desserts, category: cats.desserts, price: 90, active: true, image: art('dessert', '#f3ead2', '#f2b632'),
       recipe: [{ itemId: 'mango', qty: 0.5 }, { itemId: 'stickyrice', qty: 0.15 }, { itemId: 'coconut', qty: 0.05 }] },
   ];
 
@@ -381,7 +390,7 @@ export function demoState(): AppState {
         const id = pick();
         const m = menu.find((x) => x.id === id)!;
         const dish = resolveDish(m, randomChoices(m));
-        const qty = m.id === 'boat' ? 3 + Math.floor(rand() * 3) : 1;
+        const qty = 1;
         ol.push({ menuItemId: m.id, name: m.name, options: dish.label || undefined, price: dish.price, qty, unitCost: recipeCost(partial, dish.recipe) * (0.95 + rand() * 0.1) });
       }
       const subtotal = round(ol.reduce((a, l) => a + l.price * l.qty, 0));
@@ -424,7 +433,7 @@ export function demoState(): AppState {
   const tickets: OpenTicket[] = [
     { id: 'demo-tk1', tableId: 't2', type: 'Dine-in', guests: 3, openedAt: minsAgo(18), staffId: somchai.id, staffName: somchai.name, note: '', discType: '%', discVal: 0,
       lines: [
-        { id: 'l1', menuItemId: 'boat', qty: 5, choices: { 'bt-noodle': ['bt-lek'], 'bt-meat': ['bt-beef'] } },
+        { id: 'l1', menuItemId: 'boat', qty: 2, choices: { 'bt-noodle': ['bt-lek'], 'bt-size': ['bt-normal'] } },
         { id: 'l2', menuItemId: 'porknoodle', qty: 1, choices: { 'pn-noodle': ['pn-bamee'], 'pn-soup': ['pn-tomyum'], 'pn-size': ['pn-special'] }, note: L('No bean sprouts', 'ไม่ใส่ถั่วงอก') },
         { id: 'l3', menuItemId: 'thaitea', qty: 2, choices: { 'tt-sweet': ['tt-less'], 'tt-size': ['tt-reg'] } },
       ] },
