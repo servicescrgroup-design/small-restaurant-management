@@ -45,7 +45,7 @@ export default function Setup({ go }: { go: (p: Page) => void }) {
 }
 
 function GettingStarted({ go, setTab }: { go: (p: Page) => void; setTab: (t: Tab) => void }) {
-  const { state } = useStore();
+  const { state, update } = useStore();
   const { t } = useI18n();
   const s = state.settings;
   const steps = [
@@ -67,6 +67,7 @@ function GettingStarted({ go, setTab }: { go: (p: Page) => void; setTab: (t: Tab
             <h2>{t('setup.checklist')}</h2>
             <p>{t('setup.checklistDone', { done: doneCount, total: steps.length })}</p>
           </div>
+          <button className="btn sm" onClick={() => update((d) => { d.setupGuide = true; })}>✨ {t('guide.restart')}</button>
         </div>
         <div className="meter" style={{ marginBottom: 14 }}><div style={{ width: `${(doneCount / steps.length) * 100}%` }} /></div>
         <div className="checklist">
@@ -381,7 +382,7 @@ const CURRENCIES = [
 ];
 
 /** Currency dropdown with a symbol badge, flag and a sample price for each option. */
-function CurrencySelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+export function CurrencySelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

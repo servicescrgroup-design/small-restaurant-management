@@ -11,6 +11,7 @@ import Menu from './pages/Menu';
 import Calculators from './pages/Calculators';
 import Setup from './pages/Setup';
 import Account from './pages/Account';
+import SetupGuide from './pages/SetupGuide';
 import { TrialBanner, TrialEnded } from './components/Billing';
 import { useAccount } from './account';
 
@@ -95,6 +96,7 @@ function Shell() {
       {account && !account.access.canSave && account.subscription ? <TrialEnded /> : (
       <main className="main">
         <TrialBanner go={go} />
+        {state.setupGuide && role === 'owner' ? <SetupGuide go={go} /> : <>
         {state.isDemo && page !== 'pos' && role === 'owner' && (
           <div className="demo-banner">
             {t('common.demo.banner')}
@@ -109,6 +111,7 @@ function Shell() {
         {page === 'calculators' && <Calculators go={go} />}
         {page === 'setup' && <Setup go={go} />}
         {page === 'account' && <Account go={go} />}
+        </>}
       </main>
       )}
     </div>

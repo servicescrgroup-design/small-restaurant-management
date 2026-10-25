@@ -300,6 +300,7 @@ function CreateBusiness({ email, onCreated, onSignOut, onCancel }: { email: stri
       const base = start === 'device' && local ? structuredClone(local) : start === 'demo' ? demoState() : emptyState();
       base.settings.storeName = name.trim();
       if (start !== 'demo') base.isDemo = false;
+      if (start === 'empty') base.setupGuide = true;
       onCreated(await createBusiness(name.trim(), base));
     } catch (err) {
       setError(String((err as { message?: string })?.message ?? err));

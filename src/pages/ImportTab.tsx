@@ -6,14 +6,18 @@ import { guessColumns, parsePastedMenu, readSpreadsheet, rowsFromTable, type Col
 import type { MenuItem } from '../types';
 import { uid } from '../utils';
 
-type Source = 'wongnai' | 'foodstory' | 'other';
+export type Source = 'wongnai' | 'grab' | 'foodstory' | 'other';
+export const SOURCES: Source[] = ['wongnai', 'grab', 'foodstory', 'other'];
 
-/** Bring an existing menu (and phone number) in from Wongnai, FoodStory or any spreadsheet/text. */
-export default function ImportTab() {
+/**
+ * Bring an existing menu (and phone number) in from Wongnai, GrabMerchant, FoodStory or any spreadsheet/text.
+ * The setup guide opens it on one source (`source`, without the picker) and hears back via `onImported`.
+ */
+export default function ImportTab({ source: fixedSource, onImported }: { source?: Source; onImported?: (n: number, from: Source) => void } = {}) {
   const { state, update, money } = useStore();
   const { t } = useI18n();
   const s = state.settings;
-  const [source, setSource] = useState<Source>('wongnai');
+  const [source, setSource] = useState<Source>(fixedSource ?? 'wongnai');
   const [link, setLink] = useState('');
   const [text, setText] = useState('');
   const [rows, setRows] = useState<ImportRow[] | null>(null);
@@ -94,28 +98,28 @@ export default function ImportTab() {
       if (phone && usePhone) d.settings.phone = phone;
     });
     setMsg({ tone: 'ok', text: t('importer.done', { n: items.length, skipped: dupes }) });
+    onImported?.(items.length, source);
     setRows(null);
     setTable(null);
     setText('');
   };
 
   const wongnaiUrl = /^https?:\/\/(?:www\.)?wongnai\.com\//i.test(link.trim()) ? link.trim() : 'https://www.wongnai.com/';
+  const grabUrl = /^https?:\/\/food\.grab\.com\//i.test(link.trim()) ? link.trim() : 'https://food.grab.com/th/en/';
 
   return (
     <div className="grid">
-      <div className="card">
-        <h2>{t('importer.title')}</h2>
-        <p className="muted" style={{ marginTop: 4 }}>{t('importer.intro')}</p>
-        <div className="import-sources">
-          {(['wongnai', 'foodstory', 'other'] as Source[]).map((src) => (
-            <button key={src} className={`import-source ${source === src ? 'active' : ''} ${src}`} onClick={() => { setSource(src); reset(); }}>
-              <span className="import-logo" aria-hidden>{src === 'wongnai' ? 'W' : src === 'foodstory' ? 'F' : '⇪'}</span>
-              <strong>{t(`importer.src.${src}`)}</strong>
-              <span>{t(`importer.src.${src}Hint`)}</span>
-            </button>
-          ))}
+      {!fixedSource && (
+        <div className="card">
+          <h2>{t('importer.title')}</h2>
+          <p className="muted" style={{ marginTop: 4 }}>{t('importer.intro')}</p>
+          <div className="import-sources">
+            {SOURCES.map((src) => (
+              <SourceButton key={src} src={src} active={source === src} onClick={() => { setSource(src); reset(); }} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {!rows && (
         <div className="card">
@@ -134,6 +138,38 @@ export default function ImportTab() {
               </ol>
               <Field label={t('importer.pasteLabel')}>
                 <textarea rows={10} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('importer.pastePlaceholder')} />
+              </Field>
+              <button className="btn primary" style={{ marginTop: 12 }} disabled={!text.trim()} onClick={readText}>{t('importer.read')}</button>
+            </>
+          )}
+
+          {source === 'grab' && (
+            <>
+              <ol className="import-steps">
+                <li>
+                  {t('importer.gr.step1')}
+                  <div className="row" style={{ marginTop: 8 }}>
+                    <a className="btn" href="https://merchant.grab.com/" target="_blank" rel="noopener noreferrer">{t('importer.gr.open')}</a>
+                  </div>
+                </li>
+                <li>{t('importer.gr.step2')}</li>
+                <li>{t('importer.gr.step3')}</li>
+              </ol>
+              <FileDrop onFile={readFile} fileRef={fileRef} />
+              <div className="callout info" style={{ marginTop: 12 }}>{t('importer.gr.priceNote')}</div>
+              <div className="import-or"><span>{t('importer.gr.orPaste')}</span></div>
+              <ol className="import-steps">
+                <li>
+                  {t('importer.gr.page1')}
+                  <div className="row" style={{ marginTop: 8, flexWrap: 'nowrap' }}>
+                    <input placeholder="https://food.grab.com/th/…/restaurant/…" value={link} onChange={(e) => setLink(e.target.value)} />
+                    <a className="btn" href={grabUrl} target="_blank" rel="noopener noreferrer">{t('importer.gr.openPage')}</a>
+                  </div>
+                </li>
+                <li>{t('importer.wn.step2')}</li>
+              </ol>
+              <Field label={t('importer.pasteLabel')}>
+                <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('importer.pastePlaceholderGrab')} />
               </Field>
               <button className="btn primary" style={{ marginTop: 12 }} disabled={!text.trim()} onClick={readText}>{t('importer.read')}</button>
             </>
@@ -259,6 +295,17 @@ export default function ImportTab() {
   );
 }
 
+export function SourceButton({ src, active, onClick }: { src: Source; active: boolean; onClick: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button type="button" className={`import-source ${active ? 'active' : ''} ${src}`} onClick={onClick}>
+      <span className="import-logo" aria-hidden>{src === 'wongnai' ? 'W' : src === 'grab' ? 'G' : src === 'foodstory' ? 'F' : '⇪'}</span>
+      <strong>{t(`importer.src.${src}`)}</strong>
+      <span>{t(`importer.src.${src}Hint`)}</span>
+    </button>
+  );
+}
+
 function FileDrop({ onFile, fileRef }: { onFile: (f: File) => void; fileRef: React.RefObject<HTMLInputElement> }) {
   const { t } = useI18n();
   const [over, setOver] = useState(false);
@@ -276,7 +323,7 @@ function FileDrop({ onFile, fileRef }: { onFile: (f: File) => void; fileRef: Rea
       <span className="file-drop-icon" aria-hidden>📄</span>
       <strong>{t('importer.dropTitle')}</strong>
       <span className="muted">{t('importer.dropHint')}</span>
-      <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv,.tsv,.txt" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
+      <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv,.tsv,.txt,.zip" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
     </div>
   );
 }

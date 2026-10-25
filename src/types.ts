@@ -219,6 +219,8 @@ export interface Adjustment {
 export interface AppState {
   version: 1;
   isDemo: boolean;
+  /** Show the step-by-step setup guide (set when a new business starts blank) */
+  setupGuide?: boolean;
   settings: Settings;
   staff: Staff[];
   tables: Table[];

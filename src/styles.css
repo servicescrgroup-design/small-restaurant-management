@@ -390,6 +390,7 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
 .import-source.active { border-color: var(--accent); background: var(--accent-soft); }
 .import-logo { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; font-weight: 900; color: #fff; margin-bottom: 4px; background: linear-gradient(135deg, #8a9a93, #5f6d66); }
 .import-source.wongnai .import-logo { background: linear-gradient(135deg, #ff6b6b, #e5283a); }
+.import-source.grab .import-logo { background: linear-gradient(135deg, #2bd17e, #00a650); }
 .import-source.foodstory .import-logo { background: linear-gradient(135deg, #ffb340, #f08a00); }
 .import-steps { margin: 0 0 14px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
 .import-steps a.btn { flex-shrink: 0; text-decoration: none; }
@@ -574,3 +575,17 @@ img.thumb { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; f
 .trial-ended .plan-cards { text-align: left; }
 .trial-ended-icon { font-size: 2.6rem; }
 @media (max-width: 760px) { .signup-layout { grid-template-columns: 1fr; } }
+
+/* Setup guide (after creating a business) */
+.guide-steps { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0 0 16px; flex-wrap: wrap; }
+.guide-steps li { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; background: var(--glass-soft); border: 1px solid var(--glass-border); color: var(--muted); font-weight: 600; font-size: 14px; }
+.guide-steps .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; border: 2px solid var(--hairline); }
+.guide-steps li.current { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.guide-steps li.current .dot { border-color: var(--accent); }
+.guide-steps li.done .dot { background: linear-gradient(135deg, var(--accent-2), var(--accent)); border-color: transparent; color: #fff; }
+.guide-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.guide-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid var(--glass-border); background: var(--glass-strong); color: var(--text); font-weight: 600; cursor: pointer; }
+.guide-chip.on { border-color: var(--accent); background: var(--accent-soft); }
+.guide-done { text-align: center; max-width: 760px; }
+.guide-done-icon { font-size: 2.6rem; }
+.guide-next { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 16px; text-align: left; }
