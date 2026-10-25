@@ -5,6 +5,7 @@ import { Empty, Field, ImageField, Modal, NumInput, Pill, Thumb } from '../compo
 import { RecipeEditor } from '../components/Recipe';
 import { Plate, RecipeCard, paletteOf, type CardLine } from '../components/RecipeCard';
 import MenuScan from '../components/MenuScan';
+import MenuListsEditor from '../components/MenuListsEditor';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { dishName, otherDishName, pct, uid } from '../utils';
 import { useI18n } from '../i18n';
@@ -31,6 +32,7 @@ export default function Menu() {
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [viewing, setViewing] = useState<MenuItem | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [editingLists, setEditingLists] = useState(false);
   const [scanned, setScanned] = useState(0);
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
@@ -69,6 +71,7 @@ export default function Menu() {
         <div className="seg">
           {cats.map((c) => <button key={c} className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>{c === 'All' ? t('common.all') : c}</button>)}
         </div>
+        <button className="btn sm edit-lists-btn" onClick={() => setEditingLists(true)} title={t('menu.lists.title')}>✎ {t('menu.lists.button')}</button>
         <span className="spacer" />
         <div className="seg view-toggle" role="group" aria-label={t('menu.view.label')}>
           <button className={view === 'cards' ? 'active' : ''} aria-pressed={view === 'cards'} onClick={() => setView('cards')}>▦ {t('menu.view.cards')}</button>
@@ -165,6 +168,7 @@ export default function Menu() {
         )}
       </div>}
 
+      {editingLists && <MenuListsEditor onClose={() => setEditingLists(false)} onSaved={() => { setTab('All'); setCat('All'); }} />}
       {scanning && <MenuScan onClose={() => setScanning(false)} onAdded={(n) => { setScanned(n); setTab('All'); setCat('All'); }} />}
 
       {viewing && (
