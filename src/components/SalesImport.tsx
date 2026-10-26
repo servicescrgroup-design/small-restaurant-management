@@ -8,6 +8,7 @@ import { defaultChoices, recordSale, resolveDish } from '../inventory';
 import type { DeliveryApp, Order, OrderLine } from '../types';
 import { fmtDateTime, uid } from '../utils';
 import { Modal, Pill } from './ui';
+import Select from './Select';
 
 /**
  * Bring in a delivery app's sales report (downloaded by the owner from GrabMerchant, LINE MAN
@@ -182,9 +183,9 @@ export default function SalesImport({ onClose, onDone }: { onClose: () => void; 
               {table[0].map((h, i) => (
                 <label key={i} className="import-col">
                   <span>{h || `#${i + 1}`}</span>
-                  <select value={columns[i] ?? 'ignore'} onChange={(e) => remap(i, e.target.value as SalesCol)}>
+                  <Select value={columns[i] ?? 'ignore'} onChange={(e) => remap(i, e.target.value as SalesCol)}>
                     {SALES_COLS.map((c) => <option key={c} value={c}>{t(`orders.import.col.${c}`)}</option>)}
-                  </select>
+                  </Select>
                 </label>
               ))}
             </div>

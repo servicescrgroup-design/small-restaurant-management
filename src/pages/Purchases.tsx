@@ -7,6 +7,7 @@ import { PURCHASE_TYPES, dishToLink, isStockType, savePurchase, typeInfo } from 
 import { methodLabel } from '../payments';
 import type { MenuItem, Purchase, PurchaseLine, PurchaseType } from '../types';
 import { addDays, fmtDate, localDate, uid } from '../utils';
+import Select from '../components/Select';
 
 type Range = 'month' | 'lastMonth' | '30' | 'all';
 
@@ -229,11 +230,11 @@ function NewPurchase({ onClose }: { onClose: () => void }) {
           <datalist id="purchase-suppliers">{suppliers.map((s) => <option key={s} value={s} />)}</datalist>
         </Field>
         <Field label={t('purchases.col.paid')}>
-          <select value={payment} onChange={(e) => setPayment(e.target.value)}>
+          <Select value={payment} onChange={(e) => setPayment(e.target.value)}>
             <option value="">—</option>
             {state.settings.paymentMethods.map((m) => <option key={m} value={m}>{methodLabel(m, lang)}</option>)}
             <option value={t('purchases.transfer')}>{t('purchases.transfer')}</option>
-          </select>
+          </Select>
         </Field>
       </div>
 
@@ -273,13 +274,13 @@ function NewPurchase({ onClose }: { onClose: () => void }) {
               {sell !== undefined && (
                 <div className="purchase-sell">
                   <Field label={t('purchases.sellAs')}>
-                    <select value={sell} onChange={(e) => setSellAs(l, e.target.value)}>
+                    <Select value={sell} onChange={(e) => setSellAs(l, e.target.value)}>
                       <option value="">{t('purchases.notOnMenu')}</option>
                       <option value="__new">+ {t('purchases.addToMenu')}</option>
                       <optgroup label={t('purchases.linkDish')}>
                         {dishes.map((m) => <option key={m.id} value={m.id}>{dishName(m)}</option>)}
                       </optgroup>
-                    </select>
+                    </Select>
                   </Field>
                   {l.newDish && (
                     <>

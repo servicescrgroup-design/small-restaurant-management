@@ -6,6 +6,7 @@ import MenuScan from '../components/MenuScan';
 import { guessColumns, parsePastedMenu, readSpreadsheet, rowsFromTable, type Column, type ImportRow } from '../importer';
 import type { MenuItem } from '../types';
 import { uid } from '../utils';
+import Select from '../components/Select';
 
 export type Source = 'wongnai' | 'grab' | 'foodstory' | 'other';
 export const SOURCES: Source[] = ['wongnai', 'grab', 'foodstory', 'other'];
@@ -226,9 +227,9 @@ export default function ImportTab({ source: fixedSource, onImported }: { source?
                 {table[0].map((h, i) => (
                   <label key={i} className="import-col">
                     <span>{h || `#${i + 1}`}</span>
-                    <select value={columns[i]} onChange={(e) => remap(i, e.target.value as Column)}>
+                    <Select value={columns[i]} onChange={(e) => remap(i, e.target.value as Column)}>
                       {(['name', 'price', 'category', 'description', 'ignore'] as Column[]).map((c) => <option key={c} value={c}>{t(`importer.col.${c}`)}</option>)}
-                    </select>
+                    </Select>
                   </label>
                 ))}
               </div>
@@ -272,7 +273,7 @@ export default function ImportTab({ source: fixedSource, onImported }: { source?
           <div className="import-options">
             {s.menuTabs.length > 0 && (
               <Field label={t('importer.menuTab')}>
-                <select value={tab} onChange={(e) => setTab(e.target.value)}>{s.menuTabs.map((x) => <option key={x}>{x}</option>)}</select>
+                <Select value={tab} onChange={(e) => setTab(e.target.value)}>{s.menuTabs.map((x) => <option key={x}>{x}</option>)}</Select>
               </Field>
             )}
             <Field label={t('importer.how')}>

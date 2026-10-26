@@ -11,6 +11,7 @@ import { appCut, deliveryOf, priceDish } from '../delivery';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { dishName, otherDishName, pct, uid } from '../utils';
 import { useI18n } from '../i18n';
+import Select from '../components/Select';
 
 export function foodCostTone(fc: number, target: number): 'ok' | 'warn' | 'bad' {
   if (fc <= target / 100) return 'ok';
@@ -317,7 +318,7 @@ function BulkBar({ ids, category, onCategory, onClear }: { ids: string[]; catego
       <strong>{t(ids.length === 1 ? 'menu.bulk.selectedOne' : 'menu.bulk.selected', { n: ids.length })}</strong>
       <button className="btn sm" onClick={() => each((m) => { m.active = true; })}>{t('menu.bulk.show')}</button>
       <button className="btn sm" onClick={() => each((m) => { m.active = false; })}>{t('menu.bulk.hide')}</button>
-      <select
+      <Select
         value={category}
         onChange={(e) => {
           const c = e.target.value;
@@ -329,7 +330,7 @@ function BulkBar({ ids, category, onCategory, onClear }: { ids: string[]; catego
       >
         <option value="">{t('menu.bulk.move')}…</option>
         {state.settings.menuCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-      </select>
+      </Select>
       <button className="btn sm danger" onClick={remove}>🗑 {t('menu.bulk.delete')}</button>
       <span className="spacer" />
       <button className="btn sm ghost" onClick={onClear}>{t('menu.bulk.clear')}</button>
@@ -369,7 +370,7 @@ function DeliveryBar({ list }: { list: MenuItem[] }) {
         <Field label={t('menu.delivery.vat')}><div className="input-unit"><NumInput value={d.vatPct} onChange={(n) => set({ vatPct: Math.max(0, n) })} /><span>%</span></div></Field>
         <Field label={t('menu.delivery.packaging')} hint={t('menu.delivery.packagingHint')}><NumInput value={d.packaging} onChange={(n) => set({ packaging: Math.max(0, n) })} /></Field>
         <Field label={t('menu.delivery.round')}>
-          <select
+          <Select
             value={d.endsIn != null ? `e${d.endsIn}` : `r${d.roundTo}`}
             onChange={(e) => {
               const v = e.target.value;
@@ -380,7 +381,7 @@ function DeliveryBar({ list }: { list: MenuItem[] }) {
             <optgroup label={t('menu.delivery.endsInGroup')}>
               {[9, 5, 0, 1, 2, 3, 4, 6, 7, 8].map((n) => <option key={`e${n}`} value={`e${n}`}>{t('menu.delivery.endsIn', { n, example: money(310 + n) })}</option>)}
             </optgroup>
-          </select>
+          </Select>
         </Field>
       </div>
       <p className="muted" style={{ fontSize: 13, margin: 0 }}>{t('menu.delivery.formula', { keep: ((1 - cut) * 100).toFixed(1) })}</p>
@@ -486,18 +487,18 @@ export function MenuItemModal({ item, onClose, onSave, onDelete }: { item: MenuI
         <Field label={t('menu.nameEn')} hint={t('menu.nameEnHint')}><input value={m.nameEn ?? ''} onChange={(e) => set('nameEn', e.target.value || undefined)} placeholder={t('menu.nameEnPlaceholder')} /></Field>
         {tabs.length > 0 && (
           <Field label={t('menu.tab')}>
-            <select value={tab} onChange={(e) => set('tab', e.target.value)}>{tabs.map((x) => <option key={x}>{x}</option>)}</select>
+            <Select value={tab} onChange={(e) => set('tab', e.target.value)}>{tabs.map((x) => <option key={x}>{x}</option>)}</Select>
           </Field>
         )}
         <Field label={t('menu.category')}>
-          <select
+          <Select
             value={m.category}
             onChange={(e) => {
               const c = e.target.value;
               // A category lives under one tab, so picking it moves the dish there too
               setM((x) => ({ ...x, category: c, ...(homeTab[c] && tabs.includes(homeTab[c]) ? { tab: homeTab[c] } : {}) }));
             }}
-          >{cats.map((c) => <option key={c}>{c}</option>)}</select>
+          >{cats.map((c) => <option key={c}>{c}</option>)}</Select>
         </Field>
         <Field label={hasGroups ? t('menu.basePrice') : t('menu.menuPrice')} hint={hasGroups ? t('menu.basePriceHint') : undefined}><NumInput value={m.price} onChange={(n) => set('price', n)} /></Field>
         <Field label={t('menu.description')} className="span-all"><input value={m.description ?? ''} onChange={(e) => set('description', e.target.value)} /></Field>
@@ -621,9 +622,9 @@ function OptionGroupsEditor({ item, onChange }: { item: MenuItem; onChange: (g: 
         <div key={g.id} className="option-group-card">
           <div className="row" style={{ flexWrap: 'nowrap' }}>
             <input className="grow" value={g.name} placeholder={t('menu.groupNamePlaceholder')} onChange={(e) => setGroup(g.id, (x) => ({ ...x, name: e.target.value }))} />
-            <select style={{ width: 'auto' }} value={ruleOf(g)} onChange={(e) => setGroup(g.id, (x) => ({ ...x, ...fromRule(e.target.value as Rule) }))}>
+            <Select style={{ width: 'auto' }} value={ruleOf(g)} onChange={(e) => setGroup(g.id, (x) => ({ ...x, ...fromRule(e.target.value as Rule) }))}>
               {(['one', 'oneOptional', 'many', 'manyRequired'] as Rule[]).map((r) => <option key={r} value={r}>{t(`menu.rule.${r}`)}</option>)}
-            </select>
+            </Select>
             <button className="icon-btn" aria-label={t('menu.removeGroup')} title={t('menu.removeGroup')} onClick={() => onChange(groups.filter((x) => x.id !== g.id))}>✕</button>
           </div>
           <div className="table-wrap">

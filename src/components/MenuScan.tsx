@@ -7,6 +7,7 @@ import { fmtPlanPrice, planCurrency, planPrices } from '../plans';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { uid } from '../utils';
 import { Modal, NumInput, Pill } from './ui';
+import Select from './Select';
 
 const MAX_PHOTOS = 4;
 
@@ -373,7 +374,7 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
             {s.menuTabs.length > 0 && (
               <label className="field">
                 <span className="field-label">{t('importer.menuTab')}</span>
-                <select value={tab} onChange={(e) => setTab(e.target.value)}>{s.menuTabs.map((x) => <option key={x}>{x}</option>)}</select>
+                <Select value={tab} onChange={(e) => setTab(e.target.value)}>{s.menuTabs.map((x) => <option key={x}>{x}</option>)}</Select>
               </label>
             )}
             {dupes > 0 && <div className="callout warn" style={{ margin: 0 }}>{t('importer.scan.dupes', { n: dupes })}</div>}

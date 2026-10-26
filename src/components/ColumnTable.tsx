@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '../i18n';
+import Select from './Select';
 
 export interface Column<T> {
   id: string;
@@ -181,7 +182,7 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
       <div className="column-table-tools">
         {/* Phones show rows as cards with no header, so sorting is a menu here */}
         {columns.some((c) => c.sort) && (
-          <select
+          <Select
             className="sort-select"
             value={layout.sort ? `${layout.sort.id}:${layout.sort.dir}` : ''}
             onChange={(e) => { const [id, dir] = e.target.value.split(':'); setLayout({ ...layout, sort: id ? { id, dir: Number(dir) as 1 | -1 } : undefined }); }}
@@ -192,7 +193,7 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
               <option key={`${c.id}:1`} value={`${c.id}:1`}>{c.label} ↑</option>,
               <option key={`${c.id}:-1`} value={`${c.id}:-1`}>{c.label} ↓</option>,
             ])}
-          </select>
+          </Select>
         )}
         {/* Phones show rows as cards with no header, so select-all lives here */}
         {selectable && rows.length > 0 && (

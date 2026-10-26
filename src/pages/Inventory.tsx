@@ -10,6 +10,7 @@ import { useAuth } from '../auth';
 import { MenuItemModal } from './Menu';
 import { addDays, expiryLabel, fmtDate, fmtDateTime, fmtQty, localDate, uid } from '../utils';
 import { useI18n } from '../i18n';
+import Select from '../components/Select';
 
 type Tab = 'stock' | 'batches' | 'activity';
 
@@ -66,10 +67,10 @@ export default function Inventory() {
         {tab !== 'activity' && (
           <>
             <input style={{ width: 220 }} placeholder={t('inventory.searchItems')} value={q} onChange={(e) => setQ(e.target.value)} />
-            <select style={{ width: 180 }} value={loc} onChange={(e) => setLoc(e.target.value)}>
+            <Select style={{ width: 180 }} value={loc} onChange={(e) => setLoc(e.target.value)}>
               <option value="All">{t('common.all')}</option>
               {s.storageLocations.map((l) => <option key={l}>{l}</option>)}
-            </select>
+            </Select>
           </>
         )}
       </div>
@@ -299,10 +300,10 @@ function Activity() {
     <div className="card">
       <div className="card-head">
         <div><h2>{t('inventory.tab.activity')}</h2><p>{t('inventory.activity.intro')}</p></div>
-        <select style={{ width: 200 }} value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
+        <Select style={{ width: 200 }} value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
           <option value="all">{t('inventory.activity.all')}</option>
           {REASONS.map((r) => <option key={r} value={r}>{t(reasonKey(r))}</option>)}
-        </select>
+        </Select>
       </div>
       {rows.length === 0 ? <Empty title={t('inventory.activity.empty')} /> : (
         <div className="table-wrap">
@@ -393,10 +394,10 @@ function ItemModal({ item, isNew, onClose }: { item: InvItem; isNew: boolean; on
           <datalist id="units">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
         </Field>
         <Field label={t('inventory.item.category')}>
-          <select value={it.category} onChange={(e) => set('category', e.target.value)}>{withCurrent(s.inventoryCategories, it.category).map((c) => <option key={c}>{c}</option>)}</select>
+          <Select value={it.category} onChange={(e) => set('category', e.target.value)}>{withCurrent(s.inventoryCategories, it.category).map((c) => <option key={c}>{c}</option>)}</Select>
         </Field>
         <Field label={t('inventory.item.location')}>
-          <select value={it.location} onChange={(e) => set('location', e.target.value)}>{withCurrent(s.storageLocations, it.location).map((c) => <option key={c}>{c}</option>)}</select>
+          <Select value={it.location} onChange={(e) => set('location', e.target.value)}>{withCurrent(s.storageLocations, it.location).map((c) => <option key={c}>{c}</option>)}</Select>
         </Field>
         <Field label={t('inventory.item.par')} hint={t('inventory.item.parHint')}><div className="input-unit"><NumInput value={it.parLevel} onChange={(n) => set('parLevel', n)} /><span>{it.unit}</span></div></Field>
         <Field label={t('inventory.item.shelfLife')} hint={t('inventory.item.shelfLifeHint')}><div className="input-unit"><NumInput value={it.shelfLifeDays} onChange={(n) => set('shelfLifeDays', Math.max(0, Math.round(n)))} /><span>{t('common.days')}</span></div></Field>
@@ -453,17 +454,17 @@ function ReceiveModal({ itemId, onClose }: { itemId: string; onClose: () => void
         <Field label={t('inventory.receive.cost')}>
           <div className="input-unit">
             <NumInput value={price} onChange={setPrice} />
-            <select style={{ width: 'auto' }} value={mode} onChange={(e) => setMode(e.target.value as 'unit' | 'total')}>
+            <Select style={{ width: 'auto' }} value={mode} onChange={(e) => setMode(e.target.value as 'unit' | 'total')}>
               <option value="total">{t('inventory.receive.costTotal')}</option>
               <option value="unit">{t('inventory.receive.costPer', { unit: item.unit })}</option>
-            </select>
+            </Select>
           </div>
         </Field>
         <Field label={t('inventory.receive.receivedOn')}><input type="date" value={receivedAt} onChange={(e) => { setReceivedAt(e.target.value); if (item.shelfLifeDays > 0 && e.target.value) setExpiresAt(addDays(e.target.value, item.shelfLifeDays)); }} /></Field>
         <Field label={t('inventory.receive.expiresOn')} hint={item.shelfLifeDays ? t('inventory.receive.defaultShelfLife', { n: item.shelfLifeDays }) : t('inventory.receive.noExpiryHint')}><input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} /></Field>
         <Field label={t('inventory.receive.lot')}><input value={lot} onChange={(e) => setLot(e.target.value)} /></Field>
         <Field label={t('inventory.receive.storedIn')}>
-          <select value={location} onChange={(e) => setLocation(e.target.value)}>{[...new Set([...state.settings.storageLocations, item.location])].map((l) => <option key={l}>{l}</option>)}</select>
+          <Select value={location} onChange={(e) => setLocation(e.target.value)}>{[...new Set([...state.settings.storageLocations, item.location])].map((l) => <option key={l}>{l}</option>)}</Select>
         </Field>
       </div>
       <div className="result-box">
@@ -595,10 +596,10 @@ function DiscardModal({ batch, onClose }: { batch: Batch; onClose: () => void })
       <div className="form-grid">
         <Field label={t('inventory.toss.amount')}><div className="input-unit"><NumInput autoFocus value={qty} onChange={(n) => setQty(Math.min(n, batch.qtyRemaining))} /><span>{item.unit}</span></div></Field>
         <Field label={t('inventory.toss.reason')}>
-          <select value={reason} onChange={(e) => setReason(e.target.value as 'waste' | 'expired')}>
+          <Select value={reason} onChange={(e) => setReason(e.target.value as 'waste' | 'expired')}>
             <option value="expired">{t('inventory.toss.optExpired')}</option>
             <option value="waste">{t('inventory.toss.optWaste')}</option>
-          </select>
+          </Select>
         </Field>
         <Field label={t('common.notes')} className="span-all"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       </div>

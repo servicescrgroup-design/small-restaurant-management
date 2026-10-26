@@ -16,6 +16,8 @@ export interface Settings {
   categoryTabs?: Record<string, string>;
   /** Delivery-app pricing (see delivery.ts) */
   delivery?: DeliverySettings;
+  /** Other costs every dish carries (gas, labour, sauce cups…), added to plate cost in the calculator */
+  dishExtras?: DishExtra[];
   inventoryCategories: string[];
   storageLocations: string[];
   paymentMethods: string[];
@@ -255,6 +257,14 @@ export interface Adjustment {
 export type PurchaseType =
   | 'ingredients' | 'prepacked' | 'drinks' | 'packaging'
   | 'supplies' | 'equipment' | 'investment' | 'repairs' | 'rent' | 'utilities' | 'wages' | 'marketing' | 'fees' | 'other';
+
+export interface DishExtra {
+  id: string;
+  name: string;
+  /** Baht per plate, or a percent of the ingredient cost when pct is set */
+  amount: number;
+  pct?: boolean;
+}
 
 export interface PurchaseLine {
   id: string;

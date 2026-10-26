@@ -6,10 +6,11 @@ import { useAuth } from '../auth';
 import { unitCost } from '../inventory';
 import { Field, NumInput, Tabs } from '../components/ui';
 import { RecipeCard, type CardLine } from '../components/RecipeCard';
-import { MenuItemModal, foodCostTone } from './Menu';
-import type { MenuItem } from '../types';
-import { fmtInt, fmtQty, pct, uid } from '../utils';
+import { MenuItemModal, dishDefaults, foodCostTone } from './Menu';
+import type { DishExtra, MenuItem } from '../types';
+import { dishName, fmtInt, fmtQty, pct, uid } from '../utils';
 import { useI18n } from '../i18n';
+import Select from '../components/Select';
 
 type Tab = 'plate' | 'yield' | 'scale' | 'margin';
 
@@ -61,7 +62,12 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
       ? unitCost(state, l.itemId) * l.qty
       : l.packQty > 0 && l.yieldPct > 0 ? (l.packPrice / l.packQty) * l.useQty / (l.yieldPct / 100) : 0;
   const ingredients = lines.reduce((a, l) => a + lineCost(l), 0);
-  const plate = ingredients * (1 + qFactor / 100) + packaging;
+  // The store's own extra costs per dish (saved, so every calculation includes them)
+  const extras = s.dishExtras ?? [];
+  const extraCost = (x: DishExtra) => (x.pct ? ingredients * x.amount / 100 : x.amount);
+  const extrasTotal = extras.reduce((a, x) => a + extraCost(x), 0);
+  const setExtras = (fn: (xs: DishExtra[]) => DishExtra[]) => update((d) => { d.settings.dishExtras = fn(d.settings.dishExtras ?? []); });
+  const plate = ingredients * (1 + qFactor / 100) + packaging + extrasTotal;
   const fc = price > 0 ? plate / price : 0;
   const suggested = target > 0 ? plate / (target / 100) : 0;
   const roundUp = (n: number) => Math.max(0.99, Math.ceil(n) - 0.01 < n ? Math.ceil(n) + 0.99 : Math.ceil(n) - 0.01);
@@ -85,12 +91,13 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
   });
 
   return (
-    <div className="grid split">
+    <div className="grid split plate-calc">
+      <div className="grid">
       <div className="card">
         <Field label={t('calc.dishName')}><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('calc.dishPlaceholder')} /></Field>
         <h3 style={{ margin: '18px 0 8px' }}>{t('calc.perPlate')}</h3>
         <div className="table-wrap">
-          <table className="table compact">
+          <table className="table compact plate-lines">
             <thead><tr><th>{t('calc.col.ingredient')}</th><th>{t('calc.col.amountUsed')}</th><th className="num">{t('calc.col.cost')}</th><th /></tr></thead>
             <tbody>
               {lines.map((l) => (
@@ -136,6 +143,61 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
           </Field>
           <Field label={t('calc.packagingLabel')}><NumInput value={packaging} onChange={setPackaging} /></Field>
         </div>
+
+        <div className="extras">
+          <div className="extras-head">
+            <h3>{t('calc.extras.title')}</h3>
+            <span className="muted">{t('calc.extras.hint')}</span>
+          </div>
+          {extras.map((x) => (
+            <div key={x.id} className="extra-row">
+              <input value={x.name} placeholder={t('calc.extras.namePh')} aria-label={t('calc.extras.name')} onChange={(e) => setExtras((xs) => xs.map((y) => (y.id === x.id ? { ...y, name: e.target.value } : y)))} />
+              <div className="extra-amount">
+                <NumInput value={x.amount} onChange={(amount) => setExtras((xs) => xs.map((y) => (y.id === x.id ? { ...y, amount } : y)))} aria-label={t('calc.extras.amount')} />
+                <Select value={x.pct ? 'pct' : 'baht'} onChange={(e) => setExtras((xs) => xs.map((y) => (y.id === x.id ? { ...y, pct: e.target.value === 'pct' } : y)))} aria-label={t('calc.extras.kind')}>
+                  <option value="baht">{t('calc.extras.perPlate')}</option>
+                  <option value="pct">{t('calc.extras.pctOfIngredients')}</option>
+                </Select>
+              </div>
+              <span className="extra-cost">{money(extraCost(x))}</span>
+              <button className="icon-btn" aria-label={t('common.remove')} onClick={() => setExtras((xs) => xs.filter((y) => y.id !== x.id))}>✕</button>
+            </div>
+          ))}
+          <div className="row">
+            <button className="btn sm" onClick={() => setExtras((xs) => [...xs, { id: uid(), name: '', amount: 0 }])}>+ {t('calc.extras.add')}</button>
+            {extras.length === 0 && ['gas', 'labour', 'utilities'].map((k) => (
+              <button key={k} className="btn sm ghost" onClick={() => setExtras((xs) => [...xs, { id: uid(), name: t(`calc.extras.ex.${k}`), amount: 0 }])}>+ {t(`calc.extras.ex.${k}`)}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {plate > 0 && (
+        <PriceChart
+          price={price > 0 ? price : roundUp(suggested)}
+          atYourPrice={price > 0}
+          parts={[
+            { key: 'ing', label: t('calc.ingredients'), value: ingredients },
+            { key: 'q', label: t('calc.qFactor'), value: ingredients * qFactor / 100 },
+            { key: 'pack', label: t('calc.packaging'), value: packaging },
+            { key: 'other', label: t('calc.extras.chartLabel'), value: extrasTotal, detail: extras.filter((x) => extraCost(x) > 0).map((x) => `${x.name || t('calc.extras.unnamed')} ${money(extraCost(x))}`).join(' · ') },
+          ]}
+        />
+      )}
+        {plate > 0 && (
+        <div className="card">
+          <h3 style={{ marginBottom: 8 }}>{t('calc.priceTargets')}</h3>
+          <table className="table compact">
+            <thead><tr><th>{t('calc.col.foodCost')}</th><th className="num">{t('calc.col.price')}</th><th className="num">{t('calc.col.profit')}</th></tr></thead>
+            <tbody>
+              {[25, 28, 30, 32, 35, 40].map((p) => (
+                <tr key={p} style={p === target ? { fontWeight: 700 } : undefined}>
+                  <td>{p}%</td><td className="num">{money(plate / (p / 100))}</td><td className="num">{money(plate / (p / 100) - plate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       </div>
 
       <div className="grid">
@@ -157,6 +219,7 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
             <div className="kv"><span>{t('calc.ingredients')}</span><span>{money(ingredients)}</span></div>
             <div className="kv"><span>{t('calc.qFactor')}</span><span>{money(ingredients * qFactor / 100)}</span></div>
             {packaging > 0 && <div className="kv"><span>{t('calc.packaging')}</span><span>{money(packaging)}</span></div>}
+            {extras.filter((x) => extraCost(x) > 0).map((x) => <div key={x.id} className="kv"><span>{x.name || t('calc.extras.unnamed')}</span><span>{money(extraCost(x))}</span></div>)}
           </div>
           <div className="form-grid" style={{ marginTop: 14 }}>
             <Field label={t('calc.targetFoodCost')}><div className="input-unit"><NumInput value={target} onChange={setTarget} /><span>%</span></div></Field>
@@ -182,21 +245,6 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
           {isOwner && <button className="btn primary" style={{ width: '100%', marginTop: 14 }} disabled={!lines.length} onClick={toMenu}>{t('calc.addToMenu')}</button>}
           {isOwner && customCount > 0 && <p className="muted" style={{ fontSize: 12.5 }}>{t(customCount > 1 ? 'calc.customMany' : 'calc.customOne', { n: customCount })}</p>}
         </div>
-        {plate > 0 && (
-          <div className="card">
-            <h3 style={{ marginBottom: 8 }}>{t('calc.priceTargets')}</h3>
-            <table className="table compact">
-              <thead><tr><th>{t('calc.col.foodCost')}</th><th className="num">{t('calc.col.price')}</th><th className="num">{t('calc.col.profit')}</th></tr></thead>
-              <tbody>
-                {[25, 28, 30, 32, 35, 40].map((p) => (
-                  <tr key={p} style={p === target ? { fontWeight: 700 } : undefined}>
-                    <td>{p}%</td><td className="num">{money(plate / (p / 100))}</td><td className="num">{money(plate / (p / 100) - plate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
       {adding && (
@@ -206,6 +254,87 @@ function PlateCost({ go }: { go: (p: Page) => void }) {
           onSave={(m) => { update((d) => { d.menu.push(m); }); setAdding(null); go('menu'); }}
         />
       )}
+    </div>
+  );
+}
+
+// ---------- Where the price goes ----------
+
+// Fixed slot per cost type (validated for colour-blind separation in light and dark); profit always last
+const SLOTS: Record<string, string> = { ing: 'var(--viz-1)', q: 'var(--viz-2)', pack: 'var(--viz-3)', other: 'var(--viz-4)', profit: 'var(--viz-5)' };
+
+function PriceChart({ price, atYourPrice, parts }: { price: number; atYourPrice: boolean; parts: { key: string; label: string; value: number; detail?: string }[] }) {
+  const { money } = useStore();
+  const { t } = useI18n();
+  const [hi, setHi] = useState<string | null>(null);
+  const cost = parts.reduce((a, p) => a + p.value, 0);
+  const profit = price - cost;
+  const slices = [...parts.filter((p) => p.value > 0.004), ...(profit > 0.004 ? [{ key: 'profit', label: t('calc.chart.profit'), value: profit, detail: undefined }] : [])];
+  // A loss means costs are more than the price: draw against the cost so the ring still closes
+  const whole = Math.max(price, cost) || 1;
+  const R = 70, C = 2 * Math.PI * R, GAP = slices.length > 1 ? 3 : 0;
+  let at = 0;
+  const arcs = slices.map((p) => {
+    const len = (p.value / whole) * C;
+    const arc = { ...p, dash: Math.max(0, len - GAP), offset: -at };
+    at += len;
+    return arc;
+  });
+  const shown = slices.find((p) => p.key === hi);
+
+  return (
+    <div className="card price-chart">
+      <div className="card-head">
+        <div>
+          <h3>{t('calc.chart.title')}</h3>
+          <p className="muted">{t(atYourPrice ? 'calc.chart.atYourPrice' : 'calc.chart.atSuggested', { price: money(price) })}</p>
+        </div>
+      </div>
+      <div className="price-chart-body">
+        <svg viewBox="0 0 180 180" className="price-donut" role="img" aria-label={t('calc.chart.title')}>
+          <circle cx="90" cy="90" r={R} fill="none" stroke="var(--glass-soft)" strokeWidth="26" />
+          {arcs.map((a) => (
+            <circle
+              key={a.key}
+              cx="90" cy="90" r={R} fill="none"
+              stroke={SLOTS[a.key]} strokeWidth={hi === a.key ? 30 : 26}
+              strokeDasharray={`${a.dash} ${C}`} strokeDashoffset={a.offset}
+              transform="rotate(-90 90 90)"
+              opacity={hi && hi !== a.key ? 0.35 : 1}
+              onPointerEnter={() => setHi(a.key)} onPointerLeave={() => setHi(null)}
+              style={{ transition: 'opacity 0.15s, stroke-width 0.15s', cursor: 'default' }}
+            >
+              <title>{`${a.label}: ${money(a.value)} (${pct(a.value / price)})`}</title>
+            </circle>
+          ))}
+          <text x="90" y="84" textAnchor="middle" className="donut-label">{shown ? shown.label : t(profit >= 0 ? 'calc.chart.profit' : 'calc.chart.loss')}</text>
+          <text x="90" y="106" textAnchor="middle" className="donut-value">{shown ? pct(shown.value / price) : pct(Math.abs(profit) / price)}</text>
+        </svg>
+        <ul className="price-legend">
+          {slices.map((p) => (
+            <li key={p.key} className={hi === p.key ? 'on' : ''} onPointerEnter={() => setHi(p.key)} onPointerLeave={() => setHi(null)}>
+              <span className="legend-chip" style={{ background: SLOTS[p.key] }} aria-hidden />
+              <span className="legend-name">{p.label}{p.detail && <small>{p.detail}</small>}</span>
+              <span className="legend-amount">{money(p.value)}</span>
+              <span className="legend-pct">{pct(p.value / price)}</span>
+            </li>
+          ))}
+          {profit < -0.004 && (
+            <li className="loss">
+              <span className="legend-chip" aria-hidden>!</span>
+              <span className="legend-name">{t('calc.chart.loss')}</span>
+              <span className="legend-amount">−{money(-profit)}</span>
+              <span className="legend-pct">{pct(-profit / price)}</span>
+            </li>
+          )}
+          <li className="total">
+            <span />
+            <span className="legend-name">{t('calc.chart.price')}</span>
+            <span className="legend-amount">{money(price)}</span>
+            <span className="legend-pct">100%</span>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }
@@ -293,10 +422,10 @@ function Scaler() {
         <div className="card-head">
           <div><h2>{t('calc.tab.scale')}</h2><p>{t('calc.scaleIntro')}</p></div>
           {preps.length > 0 && (
-            <select style={{ width: 240 }} value="" onChange={(e) => load(e.target.value)}>
+            <Select style={{ width: 240 }} value="" onChange={(e) => load(e.target.value)}>
               <option value="">{t('calc.loadPrep')}</option>
               {preps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
           )}
         </div>
         <div className="form-grid" style={{ marginBottom: 16 }}>
@@ -369,6 +498,7 @@ function MarginCalc() {
   const checksDay = daysOpen > 0 ? checksMonth / daysOpen : Infinity;
 
   return (
+    <div className="grid">
     <div className="grid cols-2" style={{ alignItems: 'start' }}>
       <div className="card">
         <h2>{t('calc.marginTitle')}</h2>
@@ -410,6 +540,157 @@ function MarginCalc() {
           <div className="result-big" style={{ fontSize: '1.4rem' }}>{Number.isFinite(checksDay) ? t('calc.checksDay', { n: fmtInt(Math.ceil(checksDay)) }) : t('calc.costsExceed')}</div>
         </div>
       </div>
+    </div>
+    <BreakEvenDetail
+      costs={[
+        { key: 'rent', label: t('calc.be.rent'), value: rent },
+        { key: 'labor', label: t('calc.be.labor'), value: labor },
+        { key: 'utilities', label: t('calc.be.utilities'), value: utilities },
+        { key: 'other', label: t('calc.be.other'), value: other },
+      ]}
+      foodPct={foodPct}
+      varPct={varPct}
+      daysOpen={daysOpen}
+    />
+    </div>
+  );
+}
+
+const COST_SLOTS = ['var(--viz-1)', 'var(--viz-2)', 'var(--viz-3)', 'var(--viz-4)'];
+
+/**
+ * The break-even worked out per fixed cost and per dish: what each cost is per day, and how many of
+ * each menu dish you'd have to sell (on its own) to pay for it. Dishes use their real recipe cost;
+ * a dish with no recipe uses the food-cost % above as an estimate.
+ */
+function BreakEvenDetail({ costs, foodPct, varPct, daysOpen }: { costs: { key: string; label: string; value: number }[]; foodPct: number; varPct: number; daysOpen: number }) {
+  const { state, money } = useStore();
+  const { t, lang } = useI18n();
+  const [showAll, setShowAll] = useState(false);
+  const [exampleId, setExampleId] = useState('');
+  const fixed = costs.reduce((a, c) => a + c.value, 0);
+  const days = daysOpen > 0 ? daysOpen : 30;
+
+  const dishes = state.menu.filter((m) => m.active && m.price > 0).map((m) => {
+    const d = dishDefaults(state, m);
+    const estimated = !d.recipe.length;
+    const cost = estimated ? d.price * foodPct / 100 : d.cost;
+    const keep = d.price - cost - d.price * varPct / 100;
+    return { m, price: d.price, cost, keep, estimated, perMonth: keep > 0 ? fixed / keep : Infinity };
+  }).sort((a, b) => a.perMonth - b.perMonth);
+  const shown = showAll ? dishes : dishes.slice(0, 8);
+  const example = dishes.find((d) => d.m.id === exampleId) ?? dishes[Math.floor(dishes.length / 2)];
+  const n = (x: number) => (Number.isFinite(x) ? fmtInt(Math.ceil(x)) : '—');
+  const [hi, setHi] = useState<string | null>(null);
+
+  if (fixed <= 0) return null;
+  return (
+    <div className="card be-detail">
+      <div className="card-head">
+        <div>
+          <h2>{t('calc.be.title')}</h2>
+          <p>{t('calc.be.intro')}</p>
+        </div>
+      </div>
+
+      <div className="be-top">
+        <div>
+          <h3>{t('calc.be.costsTitle')}</h3>
+          <div className="be-bar" role="img" aria-label={t('calc.be.costsTitle')}>
+            {costs.filter((c) => c.value > 0).map((c) => (
+              <span
+                key={c.key}
+                style={{ flexGrow: c.value, background: COST_SLOTS[costs.indexOf(c)], opacity: hi && hi !== c.key ? 0.35 : 1 }}
+                onPointerEnter={() => setHi(c.key)} onPointerLeave={() => setHi(null)}
+                title={`${c.label}: ${money(c.value)} (${pct(c.value / fixed)})`}
+              />
+            ))}
+          </div>
+          <table className="table compact be-costs">
+            <thead><tr><th>{t('calc.be.col.cost')}</th><th className="num">{t('calc.be.col.month')}</th><th className="num">{t('calc.be.col.day')}</th><th className="num">{t('calc.be.col.share')}</th></tr></thead>
+            <tbody>
+              {costs.map((c, i) => (
+                <tr key={c.key} className={hi === c.key ? 'hi' : ''} onPointerEnter={() => setHi(c.key)} onPointerLeave={() => setHi(null)}>
+                  <td><span className="legend-chip" style={{ background: COST_SLOTS[i] }} aria-hidden /> {c.label}</td>
+                  <td className="num">{money(c.value)}</td>
+                  <td className="num">{money(c.value / days)}</td>
+                  <td className="num muted">{pct(c.value / fixed)}</td>
+                </tr>
+              ))}
+              <tr className="total"><td>{t('calc.be.total')}</td><td className="num">{money(fixed)}</td><td className="num">{money(fixed / days)}</td><td className="num muted">100%</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        {example && (
+          <div className="be-example">
+            <div className="be-example-head">
+              <h3>{t('calc.be.exampleTitle')}</h3>
+              <Select value={example.m.id} onChange={(e) => setExampleId(e.target.value)} aria-label={t('calc.be.pickDish')}>
+                {dishes.map((d) => <option key={d.m.id} value={d.m.id}>{dishName(d.m, lang)}</option>)}
+              </Select>
+            </div>
+            <p className="be-sentence">
+              {t('calc.be.exampleLine', { dish: dishName(example.m, lang), price: money(example.price), cost: money(example.cost), fees: money(example.price * varPct / 100), keep: money(example.keep) })}
+            </p>
+            {example.keep > 0 ? (
+              <>
+                <ul className="be-steps">
+                  {costs.filter((c) => c.value > 0).map((c) => (
+                    <li key={c.key}>
+                      <span className="legend-chip" style={{ background: COST_SLOTS[costs.indexOf(c)] }} aria-hidden />
+                      <span>{t('calc.be.toCover', { cost: c.label, amount: money(c.value) })}</span>
+                      <strong>{t('calc.be.plates', { n: n(c.value / example.keep) })}</strong>
+                    </li>
+                  ))}
+                </ul>
+                <div className="be-answer">
+                  <span>{t('calc.be.allFixed')}</span>
+                  <strong>{t('calc.be.platesMonth', { n: n(example.perMonth) })}</strong>
+                  <span className="be-answer-day">{t('calc.be.perDay', { n: n(example.perMonth / days), days })}</span>
+                </div>
+                {example.estimated && <p className="muted be-note">{t('calc.be.estimated', { pct: foodPct })}</p>}
+              </>
+            ) : <div className="callout bad">{t('calc.be.noProfit')}</div>}
+          </div>
+        )}
+      </div>
+
+      {dishes.length > 0 ? (
+        <>
+          <h3 style={{ margin: '22px 0 4px' }}>{t('calc.be.dishesTitle')}</h3>
+          <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>{t('calc.be.dishesHint')}</p>
+          <div className="table-wrap">
+            <table className="table compact be-dishes">
+              <thead>
+                <tr>
+                  <th>{t('calc.be.col.dish')}</th>
+                  <th className="num">{t('calc.be.col.keep')}</th>
+                  {costs.map((c, i) => <th key={c.key} className="num"><span className="legend-chip" style={{ background: COST_SLOTS[i] }} aria-hidden /> {c.label}</th>)}
+                  <th className="num">{t('calc.be.col.allMonth')}</th>
+                  <th className="num">{t('calc.be.col.perDay')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((d) => (
+                  <tr key={d.m.id} className={d.m.id === example?.m.id ? 'hi' : 'clickable'} onClick={() => setExampleId(d.m.id)}>
+                    <td>
+                      <strong>{dishName(d.m, lang)}</strong>
+                      <div className="sub">{money(d.price)}{d.estimated ? ` · ${t('calc.be.est')}` : ''}</div>
+                    </td>
+                    <td className="num">{d.keep > 0 ? money(d.keep) : <span className="bad-text">{money(d.keep)}</span>}</td>
+                    {costs.map((c) => <td key={c.key} className="num">{d.keep > 0 ? n(c.value / d.keep) : '—'}</td>)}
+                    <td className="num"><strong>{n(d.perMonth)}</strong></td>
+                    <td className="num"><strong>{n(d.perMonth / days)}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {dishes.length > 8 && <button className="btn sm ghost" style={{ marginTop: 8 }} onClick={() => setShowAll(!showAll)}>{showAll ? t('calc.be.showLess') : t('calc.be.showAll', { n: dishes.length })}</button>}
+          <p className="muted be-note">{t('calc.be.mixNote')}</p>
+        </>
+      ) : <p className="muted">{t('calc.be.noDishes')}</p>}
     </div>
   );
 }

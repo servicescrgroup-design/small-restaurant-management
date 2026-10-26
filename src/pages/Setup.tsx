@@ -9,6 +9,7 @@ import type { AppState, Settings, Staff, StaffRole } from '../types';
 import { localDate, uid } from '../utils';
 import { feeFor, methodLabel, sameMethod } from '../payments';
 import { getLocale, useI18n } from '../i18n';
+import Select from '../components/Select';
 
 type Tab = 'start' | 'store' | 'import' | 'staff' | 'lists' | 'data';
 
@@ -345,16 +346,16 @@ function StaffModal({ existing, onClose }: { existing: Staff | null; onClose: ()
       <div className="form-grid">
         <Field label={t('setup.modal.name')} className="span-all"><input autoFocus value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label={t('setup.modal.role')}>
-          <select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
+          <Select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
             <option value="staff">{t('setup.modal.roleStaff')}</option>
             <option value="owner">{t('setup.modal.roleOwner')}</option>
-          </select>
+          </Select>
         </Field>
         <Field label={t('setup.modal.status')}>
-          <select value={active ? 'yes' : 'no'} onChange={(e) => setActive(e.target.value === 'yes')}>
+          <Select value={active ? 'yes' : 'no'} onChange={(e) => setActive(e.target.value === 'yes')}>
             <option value="yes">{t('setup.modal.statusActive')}</option>
             <option value="no">{t('setup.modal.statusInactive')}</option>
-          </select>
+          </Select>
         </Field>
         <Field label={existing ? t('setup.modal.newPin') : t('setup.modal.pin')}>
           <input type="password" inputMode="numeric" autoComplete="new-password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} />

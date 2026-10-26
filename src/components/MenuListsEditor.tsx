@@ -4,6 +4,7 @@ import { useI18n } from '../i18n';
 import { tabOf } from '../inventory';
 import { uid } from '../utils';
 import { Modal } from './ui';
+import Select from './Select';
 
 interface Cat {
   key: string;
@@ -255,7 +256,7 @@ export default function MenuListsEditor({ onClose, onSaved }: { onClose: () => v
                     <span className="sort-count">{t(c.count === 1 ? 'menu.lists.dishOne' : 'menu.lists.dishes', { n: c.count })}</span>
                     {sections.length > 1 && (
                       // Quick move without dragging (handy on phones and long lists)
-                      <select
+                      <Select
                         className="cat-move"
                         value=""
                         title={t('menu.lists.moveTo')}
@@ -264,7 +265,7 @@ export default function MenuListsEditor({ onClose, onSaved }: { onClose: () => v
                       >
                         <option value="">⇄</option>
                         {sections.filter((x) => x.key !== sec.key).map((x) => <option key={x.key} value={x.key}>{t('menu.lists.moveToTab', { tab: x.name })}</option>)}
-                      </select>
+                      </Select>
                     )}
                     <button
                       type="button"

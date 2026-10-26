@@ -6,6 +6,7 @@ import type { InvItem, RecipeLine } from '../types';
 import { useI18n } from '../i18n';
 import { localDate, fmtQty, uid } from '../utils';
 import { Field, Modal, NumInput, Thumb } from './ui';
+import Select from './Select';
 
 // Metric first (Thailand weighs in grams and kilos); imperial last for anyone who still needs it
 const UNITS = ['g', 'kg', 'ml', 'L', 'each', 'slice', 'bunch', 'can', 'bag', 'pack', 'serving', 'portion', 'bowl', 'lb', 'oz'];
@@ -196,10 +197,10 @@ export function QuickAddIngredient({ initialName, onClose, onCreated }: { initia
         </Field>
         <Field label={t('common.quick.cost', { unit: unit || '—' })}><NumInput value={cost} onChange={setCost} /></Field>
         <Field label={t('common.quick.category')}>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>{s.inventoryCategories.map((c) => <option key={c}>{c}</option>)}</select>
+          <Select value={category} onChange={(e) => setCategory(e.target.value)}>{s.inventoryCategories.map((c) => <option key={c}>{c}</option>)}</Select>
         </Field>
         <Field label={t('common.quick.location')}>
-          <select value={location} onChange={(e) => setLocation(e.target.value)}>{s.storageLocations.map((c) => <option key={c}>{c}</option>)}</select>
+          <Select value={location} onChange={(e) => setLocation(e.target.value)}>{s.storageLocations.map((c) => <option key={c}>{c}</option>)}</Select>
         </Field>
         <Field label={t('common.quick.shelfLife')}><NumInput value={shelfLife} onChange={(n) => setShelfLife(Math.max(0, Math.round(n)))} /></Field>
         <Field label={t('common.quick.onHand')} hint={stock > 0 ? t('common.quick.onHandHint', { total: money(stock * cost) }) : undefined}>
