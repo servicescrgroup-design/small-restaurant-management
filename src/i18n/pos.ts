@@ -85,6 +85,9 @@ export default defineMessages(
     change: 'Change: {amount}',
     orderTotal: 'Order total',
     chargeLabel: 'Charge',
+    deliveryPrices: 'Charged at delivery-app prices',
+    deliveryMissing: '{n} dishes have no delivery price yet, so they use the shop price',
+    deliveryMissingOne: '1 dish has no delivery price yet, so it uses the shop price',
   },
   {
     optionsCount: '{n} ตัวเลือก',
@@ -169,5 +172,8 @@ export default defineMessages(
     change: 'เงินทอน: {amount}',
     orderTotal: 'ยอดออเดอร์',
     chargeLabel: 'ยอดที่ต้องชำระ',
+    deliveryPrices: 'คิดราคาแอปเดลิเวอรี',
+    deliveryMissing: 'มี {n} เมนูที่ยังไม่ตั้งราคาเดลิเวอรี จึงใช้ราคาหน้าร้าน',
+    deliveryMissingOne: 'มี 1 เมนูที่ยังไม่ตั้งราคาเดลิเวอรี จึงใช้ราคาหน้าร้าน',
   },
 );

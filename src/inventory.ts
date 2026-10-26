@@ -1,4 +1,4 @@
-import type { AdjReason, AppState, Batch, MenuItem, MenuOption, Order, RecipeLine } from './types';
+import type { AdjReason, AppState, Batch, MenuItem, MenuOption, Order, OrderType, RecipeLine } from './types';
 import { addDays, localDate, round, uid } from './utils';
 
 const EPS = 1e-9;
@@ -72,6 +72,20 @@ export function resolveDish(m: MenuItem | undefined, choices: Choices = {}) {
     picked,
   };
 }
+
+/**
+ * What a dish costs the customer with these choices. Delivery orders use the dish's confirmed
+ * delivery-app price for its first choices, and other choices add the same amount as in the shop.
+ * Dishes without a delivery price keep their shop price.
+ */
+export function priceFor(m: MenuItem | undefined, choices: Choices = {}, type?: OrderType) {
+  const dish = resolveDish(m, choices);
+  if (type !== 'Delivery' || !m?.deliveryPrice) return dish.price;
+  return Math.max(0, round(m.deliveryPrice + dish.price - resolveDish(m, defaultChoices(m)).price));
+}
+
+/** True when a delivery order will charge this dish's delivery price. */
+export const usesDeliveryPrice = (m: MenuItem | undefined, type?: OrderType) => type === 'Delivery' && !!m?.deliveryPrice;
 
 /** Which required groups are still missing a choice. */
 export const missingGroups = (m: MenuItem, choices: Choices) =>

@@ -944,3 +944,8 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
   .delivery-table .cell-thumb > div { min-width: 0; }
   .table.delivery-table .actions .btn { margin: 2px 0 2px 6px; }
 }
+
+/* POS: delivery orders charge delivery-app prices */
+.pos-item .price.is-delivery { color: var(--info); }
+.delivery-note { font-size: 12.5px; font-weight: 650; padding: 6px 10px; border-radius: 10px; background: var(--info-soft); color: var(--info); }
+.delivery-note.warn { background: var(--warn-soft); color: var(--warn); }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { useAuth } from '../auth';
-import { defaultChoices, missingGroups, recordSale, resolveDish, sameChoices, servingsAvailable, tabOf, type Choices } from '../inventory';
+import { defaultChoices, missingGroups, priceFor, recordSale, resolveDish, sameChoices, servingsAvailable, tabOf, usesDeliveryPrice, type Choices } from '../inventory';
 import { Field, Modal, NumInput, Pill, Thumb } from '../components/ui';
 import { Receipt } from '../components/Receipt';
 import type { AppState, MenuItem, OpenTicket, Order, OrderType, Table, TicketLine } from '../types';
@@ -18,7 +18,7 @@ const isCardMethod = (m: string) => isMethod(m, 'card', /card|บัตร/i);
 const ACTIVE_KEY = 'mise-active-ticket';
 
 function ticketTotals(state: AppState, tk: OpenTicket) {
-  const subtotal = round(tk.lines.reduce((a, l) => a + resolveDish(state.menu.find((m) => m.id === l.menuItemId), l.choices).price * l.qty, 0));
+  const subtotal = round(tk.lines.reduce((a, l) => a + priceFor(state.menu.find((m) => m.id === l.menuItemId), l.choices, tk.type) * l.qty, 0));
   const discount = round(Math.min(subtotal, tk.discType === '%' ? (subtotal * tk.discVal) / 100 : tk.discVal));
   const tax = round(((subtotal - discount) * state.settings.taxRate) / 100);
   return { subtotal, discount, tax, due: round(subtotal - discount + tax), count: tk.lines.reduce((a, l) => a + l.qty, 0) };
@@ -253,7 +253,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
       lines: ticket.lines.filter((l) => menuById.has(l.menuItemId)).map((l) => {
         const m = menuById.get(l.menuItemId)!;
         const dish = resolveDish(m, l.choices);
-        return { menuItemId: m.id, name: m.name, options: dish.label || undefined, note: l.note, price: dish.price, qty: l.qty, unitCost: 0, recipe: dish.recipe };
+        return { menuItemId: m.id, name: m.name, options: dish.label || undefined, note: l.note, price: priceFor(m, l.choices, ticket.type), qty: l.qty, unitCost: 0, recipe: dish.recipe };
       }),
       subtotal, discount, tax, tip, total: round(due + tip + fee), payment, tendered, status: 'paid', note: ticket.note.trim() || undefined,
       ...(fee > 0 ? { surcharge: fee, surchargeLabel: feeLabel } : {}),
@@ -306,7 +306,16 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
                   <span className="name">{dishName(m, lang)}</span>
                   {hasOptions && <span className="item-options">{t('pos.optionsCount', { n: m.optionGroups!.length })}</span>}
                   <span className="item-foot">
-                    <span className="price">{pricesVary(m) ? t('pos.from', { price: money(fromPrice(m)) }) : money(base.price)}</span>
+                    {(() => {
+                      // Delivery orders show the delivery-app price
+                      const dlv = usesDeliveryPrice(m, ticket.type);
+                      const shift = dlv ? priceFor(m, defaultChoices(m), ticket.type) - base.price : 0;
+                      return (
+                        <span className={`price ${dlv ? 'is-delivery' : ''}`}>
+                          {dlv && '🛵 '}{pricesVary(m) ? t('pos.from', { price: money(fromPrice(m) + shift) }) : money(base.price + shift)}
+                        </span>
+                      );
+                    })()}
                     {inCart > 0 && <span className="in-cart-count">×{inCart}</span>}
                   </span>
                 </button>
@@ -351,6 +360,14 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
                 ))}
               </div>
               <input placeholder={t('pos.customerName')} value={ticket.label ?? ''} onChange={(e) => patch((tk) => { tk.label = e.target.value; })} />
+              {ticket.type === 'Delivery' && (() => {
+                const noPrice = ticket.lines.filter((l) => { const m = menuById.get(l.menuItemId); return m && !m.deliveryPrice; }).length;
+                return (
+                  <div className={`delivery-note ${noPrice ? 'warn' : ''}`}>
+                    🛵 {t('pos.deliveryPrices')}{noPrice > 0 && <> · {t(noPrice === 1 ? 'pos.deliveryMissingOne' : 'pos.deliveryMissing', { n: noPrice })}</>}
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -368,7 +385,9 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
                   {dish.label && (
                     <button className="line-options" onClick={() => setPicking({ item: m, line: l })} title={t('pos.changeOptions')}>{dish.label} ✎</button>
                   )}
-                  <span className="muted" style={{ fontSize: 13 }}>{t('pos.each', { price: money(dish.price) })}</span>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {usesDeliveryPrice(m, ticket.type) && '🛵 '}{t('pos.each', { price: money(priceFor(m, l.choices, ticket.type)) })}
+                  </span>
                   {noteFor === l.id ? (
                     <input
                       className="line-note-input"
@@ -427,6 +446,7 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
       {paying && <PayModal due={due} net={subtotal - discount} onClose={() => setPaying(false)} onComplete={complete} />}
       {picking && (
         <OptionPicker
+          orderType={ticket.type}
           item={picking.item}
           line={picking.line}
           onClose={() => setPicking(null)}
@@ -447,13 +467,13 @@ function TicketView({ ticket, onSwitch, onPaid }: { ticket: OpenTicket; onSwitch
 // ---------- Modals ----------
 
 /** Choose rice / meat / size etc. for a dish, with quantity and a kitchen note. */
-function OptionPicker({ item, line, onClose, onConfirm }: { item: MenuItem; line?: TicketLine; onClose: () => void; onConfirm: (c: Choices, qty: number, note: string) => void }) {
+function OptionPicker({ item, line, orderType, onClose, onConfirm }: { item: MenuItem; line?: TicketLine; orderType: OrderType; onClose: () => void; onConfirm: (c: Choices, qty: number, note: string) => void }) {
   const { money } = useStore();
   const { t, lang } = useI18n();
   const [choices, setChoices] = useState<Choices>(line?.choices ?? defaultChoices(item));
   const [qty, setQty] = useState(line?.qty ?? 1);
   const [note, setNote] = useState(line?.note ?? '');
-  const dish = resolveDish(item, choices);
+  const dish = { ...resolveDish(item, choices), price: priceFor(item, choices, orderType) };
   const missing = missingGroups(item, choices);
 
   const toggle = (groupId: string, optionId: string, multi: boolean, required: boolean) => setChoices((c) => {
