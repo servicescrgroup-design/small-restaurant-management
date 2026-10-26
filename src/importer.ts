@@ -247,3 +247,17 @@ export async function readSpreadsheet(file: File): Promise<string[][]> {
   const first = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' }) as string[][];
   return first.filter((r) => r.some((c) => String(c).trim())).map((r) => r.map(String));
 }
+
+/** Every sheet in an Excel, CSV or zipped file, as rows of text (blank rows dropped). */
+export async function readAllSheets(file: File): Promise<string[][][]> {
+  if (/\.zip$/i.test(file.name)) {
+    const out: string[][][] = [];
+    for (const inner of await unzipSpreadsheets(file)) out.push(...(await readAllSheets(inner)));
+    return out;
+  }
+  const clean = (rows: unknown[][]) => rows.map((r) => r.map((c) => String(c ?? '').trim())).filter((r) => r.some(Boolean));
+  if (/\.(csv|tsv|txt)$/i.test(file.name)) return [clean(parseCsv(await file.text()))];
+  const XLSX = await import('xlsx');
+  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+  return wb.SheetNames.map((n) => clean(XLSX.utils.sheet_to_json<string[]>(wb.Sheets[n], { header: 1, raw: false, defval: '' }) as unknown[][]));
+}

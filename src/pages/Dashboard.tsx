@@ -12,7 +12,9 @@ type Range = '1' | '7' | '30';
 function summarize(orders: Order[]) {
   const net = orders.reduce((a, o) => a + netSales(o), 0);
   const cogs = orders.reduce((a, o) => a + orderCogs(o), 0);
-  return { net, cogs, count: orders.length, tips: orders.reduce((a, o) => a + o.tip, 0), avg: orders.length ? net / orders.length : 0, fc: net ? cogs / net : 0 };
+  // GP the delivery apps kept on imported app orders
+  const fees = orders.reduce((a, o) => a + (o.appFee ?? 0), 0);
+  return { net, cogs, fees, count: orders.length, tips: orders.reduce((a, o) => a + o.tip, 0), avg: orders.length ? net / orders.length : 0, fc: net ? cogs / net : 0 };
 }
 
 function Delta({ now, prev, invert }: { now: number; prev: number; invert?: boolean }) {
@@ -110,7 +112,11 @@ export default function Dashboard({ go }: { go: (p: Page) => void }) {
           tone={!now.net ? undefined : now.fc <= target ? 'good' : now.fc <= target + 0.05 ? 'warn' : 'bad'}
           sub={t('dashboard.stat.foodCostSub', { target: s.targetFoodCost, cogs: money(now.cogs) })}
         />
-        <Stat label={t('dashboard.stat.grossProfit')} value={money(now.net - now.cogs)} sub={t('dashboard.stat.grossProfitSub')} />
+        <Stat
+          label={t('dashboard.stat.grossProfit')}
+          value={money(now.net - now.cogs - now.fees)}
+          sub={now.fees > 0 ? t('dashboard.stat.grossProfitSubFees', { fees: money(now.fees) }) : t('dashboard.stat.grossProfitSub')}
+        />
         <Stat label={t('dashboard.stat.waste')} value={money(waste)} tone={waste > 0 ? 'warn' : undefined} sub={now.net ? t('dashboard.stat.wasteSub', { pct: pct(waste / now.net) }) : rangeLabel} />
         <Stat label={t('dashboard.stat.inventory')} value={money(invValue)} sub={t('dashboard.stat.inventorySub', { n: fmtInt(state.batches.filter((b) => b.qtyRemaining > 0).length) })} />
       </div>

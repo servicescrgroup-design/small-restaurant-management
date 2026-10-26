@@ -223,7 +223,19 @@ export interface Order {
   surcharge?: number;
   /** What the charge was, e.g. "3%" or "฿10" */
   surchargeLabel?: string;
+  /** Delivery app this order came from when imported from its sales report */
+  source?: DeliveryApp;
+  /** The app's own order number (used so the same order is never imported twice) */
+  externalId?: string;
+  /** GP / commission the app kept (incl. VAT) */
+  appFee?: number;
+  /** What the app paid the shop for this order */
+  payout?: number;
+  /** True when appFee was estimated from the shop's GP settings, not read from the report */
+  appFeeEstimated?: boolean;
 }
+
+export type DeliveryApp = 'grab' | 'lineman' | 'shopeefood';
 
 export type AdjReason = 'received' | 'prep-used' | 'prep-made' | 'waste' | 'expired' | 'count';
 

@@ -50,6 +50,7 @@ export default defineMessages(
     'col.foodCost': 'Food cost',
     'col.profit': 'Profit',
     'col.share': 'Share of sales',
+    'stat.grossProfitSubFees': 'After ingredients and {fees} delivery app GP',
   },
   {
     'tab.today': 'วันนี้',
@@ -100,5 +101,6 @@ export default defineMessages(
     'col.foodCost': 'ต้นทุนอาหาร',
     'col.profit': 'กำไร',
     'col.share': 'สัดส่วนยอดขาย',
+    'stat.grossProfitSubFees': 'หลังหักวัตถุดิบและ GP แอปเดลิเวอรี {fees}',
   },
 );

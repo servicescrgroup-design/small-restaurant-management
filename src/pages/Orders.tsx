@@ -8,6 +8,7 @@ import type { Order, Staff } from '../types';
 import { addDays, fmtDateTime, localDate, orderDay } from '../utils';
 import { useI18n } from '../i18n';
 import { methodLabel } from '../payments';
+import SalesImport from '../components/SalesImport';
 
 export default function Orders() {
   const { state, update, money } = useStore();
@@ -18,6 +19,8 @@ export default function Orders() {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<Order | null>(null);
   const [approving, setApproving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(0);
   const { user } = useAuth();
   const isOwner = user?.role === 'owner';
 
@@ -28,6 +31,8 @@ export default function Orders() {
     .reverse();
   const paid = list.filter((o) => o.status === 'paid');
   const net = paid.reduce((a, o) => a + netSales(o), 0);
+  const appFees = paid.reduce((a, o) => a + (o.appFee ?? 0), 0);
+  const appPayout = paid.filter((o) => o.source).reduce((a, o) => a + (o.payout ?? 0), 0);
   // Grouped by method, so "Cash" and "เงินสด" sales add up together
   const byMethod = paid.reduce<Record<string, number>>((a, o) => {
     const k = methodLabel(o.payment, lang);
@@ -55,14 +60,18 @@ export default function Orders() {
           <button className="btn sm" onClick={() => setRange(30)}>{t('orders.days30')}</button>
           <Field label={t('orders.from')}><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
           <Field label={t('orders.to')}><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+          {isOwner && <button className="btn primary sm" onClick={() => setImporting(true)}>⇩ {t('orders.import.button')}</button>}
         </div>
       </div>
+      {imported > 0 && <div className="callout ok" style={{ marginBottom: 14 }}>{t('orders.import.done', { n: imported })}</div>}
+      {importing && <SalesImport onClose={() => setImporting(false)} onDone={(n) => { setImported(n); setRange(30); }} />}
 
       <div className="grid stats" style={{ marginBottom: 16 }}>
         <Stat label={t('orders.netSales')} value={money(net)} sub={t('orders.netSalesSub')} />
         <Stat label={t('orders.orders')} value={paid.length} sub={t('orders.voidedCount', { n: list.length - paid.length })} />
         <Stat label={t('orders.taxCollected')} value={money(paid.reduce((a, o) => a + o.tax, 0))} />
         <Stat label={t('orders.tips')} value={money(paid.reduce((a, o) => a + o.tip, 0))} />
+        {appFees > 0 && <Stat label={t('orders.appFees')} value={money(appFees)} sub={t('orders.appPayout', { amount: money(appPayout) })} />}
         <Stat label={t('orders.byMethod')} value={<span style={{ fontSize: 14, fontWeight: 600 }}>{Object.entries(byMethod).map(([k, v]) => <div key={k}>{k}: {money(v)}</div>)}{!paid.length && '—'}</span>} />
       </div>
 
