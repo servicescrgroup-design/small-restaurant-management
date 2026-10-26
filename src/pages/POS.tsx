@@ -5,12 +5,15 @@ import { defaultChoices, missingGroups, recordSale, resolveDish, sameChoices, se
 import { Field, Modal, NumInput, Pill, Thumb } from '../components/ui';
 import { Receipt } from '../components/Receipt';
 import type { AppState, MenuItem, OpenTicket, Order, OrderType, Table, TicketLine } from '../types';
+import { dedupeMethods, feeFor, knownMethod, methodKey, methodLabel } from '../payments';
 import { dishName, round, uid } from '../utils';
 import { useI18n, type TFunc } from '../i18n';
 
 // Payment names are user data (and may be Thai), so match cash/card loosely.
-export const isCashMethod = (m: string) => /cash|เงินสด/i.test(m);
-const isCardMethod = (m: string) => /card|บัตร/i.test(m);
+// Recognised methods match exactly ("Gift card" isn't a card); the shop's own ones by their wording
+const isMethod = (m: string, key: string, words: RegExp) => { const k = methodKey(m); return k ? k === key : words.test(m); };
+export const isCashMethod = (m: string) => isMethod(m, 'cash', /cash|เงินสด/i);
+const isCardMethod = (m: string) => isMethod(m, 'card', /card|บัตร/i);
 
 const ACTIVE_KEY = 'mise-active-ticket';
 
@@ -585,8 +588,8 @@ function EditTablesModal({ onClose }: { onClose: () => void }) {
 
 function PayModal({ due, net, onClose, onComplete }: { due: number; net: number; onClose: () => void; onComplete: (payment: string, tip: number, tendered: number | undefined, fee: number, feeLabel?: string) => void }) {
   const { state, money } = useStore();
-  const { t } = useI18n();
-  const methods = state.settings.paymentMethods.length ? state.settings.paymentMethods : ['Cash', 'Card'];
+  const { t, lang } = useI18n();
+  const methods = state.settings.paymentMethods.length ? dedupeMethods(state.settings.paymentMethods) : [knownMethod('cash', lang), knownMethod('card', lang)];
   const [method, setMethod] = useState(methods.find(isCardMethod) ?? methods[0]);
   const [tipPct, setTipPct] = useState<number | 'custom'>(0);
   const [customTip, setCustomTip] = useState(0);
@@ -598,7 +601,7 @@ function PayModal({ due, net, onClose, onComplete }: { due: number; net: number;
   const [editingFee, setEditingFee] = useState(false);
   const isCash = isCashMethod(method);
   const tip = round(tipPct === 'custom' ? customTip : (net * tipPct) / 100);
-  const auto = state.settings.paymentFees?.[method];
+  const auto = feeFor(state.settings.paymentFees, method);
   const autoFee = auto ? round((due * auto.pct) / 100 + auto.fixed) : 0;
   const fee = feeMode === 'none' ? 0 : feeMode === 'manual' ? round(feeType === '%' ? (due * feeValue) / 100 : feeValue) : autoFee;
   const feeLabel = feeMode === 'manual'
@@ -620,7 +623,7 @@ function PayModal({ due, net, onClose, onComplete }: { due: number; net: number;
         <div className="pay-methods">
           {methods.map((m) => (
             <button key={m} className={method === m ? 'active' : ''} onClick={() => { setMethod(m); if (feeMode === 'none') setFeeMode('auto'); }}>
-              <span className="pay-icon" aria-hidden>{icon(m)}</span>{m}
+              <span className="pay-icon" aria-hidden>{icon(m)}</span>{methodLabel(m, lang)}
             </button>
           ))}
         </div>

@@ -194,20 +194,26 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-export function ChipEditor({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+export function ChipEditor({ values, onChange, placeholder, label = (v) => v, same = (a, b) => a === b }: {
+  values: string[]; onChange: (v: string[]) => void; placeholder: string;
+  /** How a value is shown (e.g. a payment method in the current language) */
+  label?: (v: string) => string;
+  /** Treat these as the same entry when adding (e.g. "Cash" and "เงินสด") */
+  same?: (a: string, b: string) => boolean;
+}) {
   const { t } = useI18n();
   const [text, setText] = useState('');
   const add = () => {
     const t = text.trim();
-    if (t && !values.includes(t)) onChange([...values, t]);
+    if (t && !values.some((v) => same(v, t))) onChange([...values, t]);
     setText('');
   };
   return (
     <div className="chips">
       {values.map((v) => (
         <span key={v} className="chip">
-          {v}
-          <button aria-label={t('common.chips.remove', { v })} onClick={() => onChange(values.filter((x) => x !== v))}>✕</button>
+          {label(v)}
+          <button aria-label={t('common.chips.remove', { v: label(v) })} onClick={() => onChange(values.filter((x) => x !== v))}>✕</button>
         </span>
       ))}
       <input value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} onBlur={add} />

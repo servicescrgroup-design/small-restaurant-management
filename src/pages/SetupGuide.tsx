@@ -8,6 +8,7 @@ import MenuScan from '../components/MenuScan';
 import { CurrencySelect } from './Setup';
 import type { MenuItem, Settings } from '../types';
 import { uid } from '../utils';
+import { dedupeMethods, knownMethod, methodLabel, sameMethod } from '../payments';
 
 type Step = 'store' | 'menu' | 'pay' | 'done';
 const STEPS: Step[] = ['store', 'menu', 'pay', 'done'];
@@ -149,18 +150,20 @@ function StoreStep({ onNext }: { onNext: () => void }) {
 
 function PayStep({ suggestGrab, onBack, onNext }: { suggestGrab: boolean; onBack: () => void; onNext: () => void }) {
   const { state, update } = useStore();
-  const { t } = useI18n();
-  const current = state.settings.paymentMethods;
-  const common = [t('guide.pay.cash'), t('guide.pay.promptpay'), t('guide.pay.card')];
-  const options = [...new Set([...current, ...common, ...APPS])];
-  const [picked, setPicked] = useState<Set<string>>(() => new Set([...current, ...(suggestGrab ? ['GrabFood'] : [])]));
+  const { t, lang } = useI18n();
+  const current = dedupeMethods(state.settings.paymentMethods);
+  // Suggest cash, PromptPay and card only if the shop doesn't have them yet (in either language)
+  const common = ['cash', 'promptpay', 'card'].map((k) => knownMethod(k, lang)).filter((m) => !current.some((c) => sameMethod(c, m)));
+  const options = dedupeMethods([...current, ...common, ...APPS]);
+  const [picked, setPicked] = useState<string[]>(() => dedupeMethods([...current, ...(suggestGrab ? ['GrabFood'] : [])]));
   const [extra, setExtra] = useState('');
-  const toggle = (m: string) => setPicked((p) => { const n = new Set(p); if (n.has(m)) n.delete(m); else n.add(m); return n; });
-  const addExtra = () => { const m = extra.trim(); if (!m) return; setPicked((p) => new Set(p).add(m)); setExtra(''); };
-  const all = [...options, ...[...picked].filter((m) => !options.includes(m))];
+  const isOn = (m: string) => picked.some((p) => sameMethod(p, m));
+  const toggle = (m: string) => setPicked((p) => (isOn(m) ? p.filter((x) => !sameMethod(x, m)) : [...p, m]));
+  const addExtra = () => { const m = extra.trim(); if (!m) return; if (!isOn(m)) setPicked((p) => [...p, m]); setExtra(''); };
+  const all = dedupeMethods([...options, ...picked]);
 
   const save = () => {
-    update((d) => { d.settings.paymentMethods = all.filter((m) => picked.has(m)); });
+    update((d) => { d.settings.paymentMethods = all.filter(isOn); });
     onNext();
   };
   return (
@@ -169,8 +172,8 @@ function PayStep({ suggestGrab, onBack, onNext }: { suggestGrab: boolean; onBack
       <p className="muted" style={{ marginTop: 4 }}>{t('guide.pay.intro')}</p>
       <div className="guide-chips">
         {all.map((m) => (
-          <button key={m} type="button" className={`guide-chip ${picked.has(m) ? 'on' : ''}`} aria-pressed={picked.has(m)} onClick={() => toggle(m)}>
-            {picked.has(m) ? '✓ ' : '+ '}{m}
+          <button key={m} type="button" className={`guide-chip ${isOn(m) ? 'on' : ''}`} aria-pressed={isOn(m)} onClick={() => toggle(m)}>
+            {isOn(m) ? '✓ ' : '+ '}{methodLabel(m, lang)}
           </button>
         ))}
       </div>
@@ -182,7 +185,7 @@ function PayStep({ suggestGrab, onBack, onNext }: { suggestGrab: boolean; onBack
       <div className="row">
         <button className="btn" onClick={onBack}>← {t('common.back')}</button>
         <span className="spacer" />
-        <button className="btn primary" disabled={!picked.size} onClick={save}>{t('guide.next')} →</button>
+        <button className="btn primary" disabled={!picked.length} onClick={save}>{t('guide.next')} →</button>
       </div>
     </div>
   );

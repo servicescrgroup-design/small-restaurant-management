@@ -7,6 +7,7 @@ import { ChipEditor, Empty, Field, Modal, NumInput, Pill, Tabs } from '../compon
 import { findByPin, isValidPin, makePinCreds, useAuth } from '../auth';
 import type { AppState, Settings, Staff, StaffRole } from '../types';
 import { localDate, uid } from '../utils';
+import { feeFor, methodLabel, sameMethod } from '../payments';
 import { getLocale, useI18n } from '../i18n';
 
 type Tab = 'start' | 'store' | 'import' | 'staff' | 'lists' | 'data';
@@ -139,7 +140,7 @@ function StoreInfo() {
 
 function Lists() {
   const { state, update } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const s = state.settings;
   const setList = (k: 'menuTabs' | 'menuCategories' | 'inventoryCategories' | 'storageLocations' | 'paymentMethods') => (v: string[]) =>
     update((d) => { d.settings[k] = v; });
@@ -147,7 +148,7 @@ function Lists() {
     <div className="grid cols-2">
       <div className="card"><h3>{t('setup.lists.menuTabs')}</h3><p className="muted">{t('setup.lists.menuTabsHint')}</p><ChipEditor values={s.menuTabs} onChange={setList('menuTabs')} placeholder={t('setup.lists.addTab')} /></div>
       <div className="card"><h3>{t('setup.lists.menuCategories')}</h3><p className="muted">{t('setup.lists.menuCategoriesHint')}</p><ChipEditor values={s.menuCategories} onChange={setList('menuCategories')} placeholder={t('setup.lists.addCategory')} /></div>
-      <div className="card"><h3>{t('setup.lists.paymentMethods')}</h3><p className="muted">{t('setup.lists.paymentMethodsHint')}</p><ChipEditor values={s.paymentMethods} onChange={setList('paymentMethods')} placeholder={t('setup.lists.addMethod')} /></div>
+      <div className="card"><h3>{t('setup.lists.paymentMethods')}</h3><p className="muted">{t('setup.lists.paymentMethodsHint')}</p><ChipEditor values={s.paymentMethods} onChange={setList('paymentMethods')} placeholder={t('setup.lists.addMethod')} label={(m) => methodLabel(m, lang)} same={sameMethod} /></div>
       <FeesCard />
       <div className="card"><h3>{t('setup.lists.storage')}</h3><p className="muted">{t('setup.lists.storageHint')}</p><ChipEditor values={s.storageLocations} onChange={setList('storageLocations')} placeholder={t('setup.lists.addLocation')} /></div>
       <div className="card"><h3>{t('setup.lists.invCategories')}</h3><p className="muted">{t('setup.lists.invCategoriesHint')}</p><ChipEditor values={s.inventoryCategories} onChange={setList('inventoryCategories')} placeholder={t('setup.lists.addCategory')} /></div>
@@ -435,13 +436,15 @@ export function CurrencySelect({ value, onChange }: { value: string; onChange: (
 /** Automatic transaction charge for each payment method. */
 function FeesCard() {
   const { state, update, money } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const s = state.settings;
   const set = (m: string, p: Partial<{ pct: number; fixed: number }>) => update((d) => {
-    const cur = d.settings.paymentFees?.[m] ?? { pct: 0, fixed: 0 };
-    const next = { ...cur, ...p };
-    d.settings.paymentFees = { ...(d.settings.paymentFees ?? {}) };
-    if (!next.pct && !next.fixed) delete d.settings.paymentFees[m]; else d.settings.paymentFees[m] = next;
+    const fees = { ...(d.settings.paymentFees ?? {}) };
+    // Keep using the key the charge was first saved under, even if that was the other language's name
+    const key = Object.keys(fees).find((k) => sameMethod(k, m)) ?? m;
+    const next = { ...(fees[key] ?? { pct: 0, fixed: 0 }), ...p };
+    if (!next.pct && !next.fixed) delete fees[key]; else fees[key] = next;
+    d.settings.paymentFees = fees;
   });
   return (
     <div className="card">
@@ -451,10 +454,10 @@ function FeesCard() {
         <thead><tr><th>{t('setup.fees.method')}</th><th style={{ width: 96 }}>{t('setup.fees.pct')}</th><th style={{ width: 92 }}>{t('setup.fees.fixed')}</th><th className="num">{t('setup.fees.example', { amount: money(100) })}</th></tr></thead>
         <tbody>
           {s.paymentMethods.map((m) => {
-            const f = s.paymentFees?.[m] ?? { pct: 0, fixed: 0 };
+            const f = feeFor(s.paymentFees, m) ?? { pct: 0, fixed: 0 };
             return (
               <tr key={m}>
-                <td><strong>{m}</strong></td>
+                <td><strong>{methodLabel(m, lang)}</strong></td>
                 <td><div className="input-unit"><NumInput value={f.pct} onChange={(pct) => set(m, { pct: Math.max(0, pct) })} /><span>%</span></div></td>
                 <td><NumInput value={f.fixed} onChange={(fixed) => set(m, { fixed: Math.max(0, fixed) })} /></td>
                 <td className="num muted">{f.pct || f.fixed ? `+${money((100 * f.pct) / 100 + f.fixed)}` : '—'}</td>

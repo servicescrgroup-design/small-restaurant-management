@@ -7,10 +7,11 @@ import { Receipt } from '../components/Receipt';
 import type { Order, Staff } from '../types';
 import { addDays, fmtDateTime, localDate, orderDay } from '../utils';
 import { useI18n } from '../i18n';
+import { methodLabel } from '../payments';
 
 export default function Orders() {
   const { state, update, money } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const today = localDate();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
@@ -27,7 +28,11 @@ export default function Orders() {
     .reverse();
   const paid = list.filter((o) => o.status === 'paid');
   const net = paid.reduce((a, o) => a + netSales(o), 0);
-  const byMethod = paid.reduce<Record<string, number>>((a, o) => ({ ...a, [o.payment]: (a[o.payment] ?? 0) + o.total }), {});
+  // Grouped by method, so "Cash" and "เงินสด" sales add up together
+  const byMethod = paid.reduce<Record<string, number>>((a, o) => {
+    const k = methodLabel(o.payment, lang);
+    return { ...a, [k]: (a[k] ?? 0) + o.total };
+  }, {});
 
   const setRange = (days: number) => { setFrom(addDays(today, -(days - 1))); setTo(today); };
 
@@ -78,7 +83,7 @@ export default function Orders() {
                     <td>{t(`common.orderType.${o.type}`)}</td>
                     <td>{o.lines.map((l) => `${l.qty}× ${l.name}${l.options ? ` (${l.options})` : ''}`).join(', ')}</td>
                     <td className="muted">{o.staffName ?? '—'}</td>
-                    <td>{o.payment}</td>
+                    <td>{methodLabel(o.payment, lang)}</td>
                     <td className="num">{o.status === 'voided' ? <Pill tone="bad">{t('orders.void')}</Pill> : money(o.total)}</td>
                     <td className="num muted">{money(orderCogs(o))}</td>
                     <td className="actions"><button className="btn sm">{t('common.view')}</button></td>

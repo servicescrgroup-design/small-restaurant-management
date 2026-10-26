@@ -4,6 +4,7 @@ import { defaultSettings, defaultTables, demoStaff, demoState } from './demo';
 import { makeMoney, uid } from './utils';
 import { useI18n } from './i18n';
 import { loadBusinessData, readBusinessRev, saveBusinessData, watchBusiness } from './cloud';
+import { dedupeMethods } from './payments';
 
 // Where a business's data lives:
 //  - local: this browser's IndexedDB (localStorage fallback) — used when cloud accounts aren't set up;
@@ -162,7 +163,10 @@ export function normalize(s: AppState): AppState {
   const tables = Array.isArray(s.tables) ? s.tables : defaultTables();
   // Older saves had ticket lines without ids.
   const tickets = (Array.isArray(s.tickets) ? s.tickets : []).map((tk) => ({ ...tk, lines: tk.lines.map((l) => (l.id ? l : { ...l, id: uid() })) }));
-  return { ...s, staff, tables, tickets, settings: { ...defaultSettings(), ...s.settings } };
+  const settings = { ...defaultSettings(), ...s.settings };
+  // "Cash" and "เงินสด" are the same method: keep one
+  settings.paymentMethods = dedupeMethods(settings.paymentMethods);
+  return { ...s, staff, tables, tickets, settings };
 }
 
 /** locked = the trial ended / plan lapsed, so the server won't accept saves */

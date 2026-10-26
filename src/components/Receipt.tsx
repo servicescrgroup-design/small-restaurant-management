@@ -2,10 +2,11 @@ import { useStore } from '../store';
 import type { Order } from '../types';
 import { fmtDateTime } from '../utils';
 import { useI18n } from '../i18n';
+import { methodLabel } from '../payments';
 
 export function Receipt({ order }: { order: Order }) {
   const { state, money } = useStore();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const s = state.settings;
   return (
     <div className="receipt">
@@ -34,7 +35,7 @@ export function Receipt({ order }: { order: Order }) {
       {order.tip > 0 && <div className="r-row"><span>{t('common.receipt.tip')}</span><span>{money(order.tip)}</span></div>}
       {!!order.surcharge && <div className="r-row"><span>{t('common.receipt.fee', { label: order.surchargeLabel ?? '' })}</span><span>{money(order.surcharge)}</span></div>}
       <div className="r-row" style={{ fontWeight: 800, fontSize: 15 }}><span>{t('common.receipt.total')}</span><span>{money(order.total)}</span></div>
-      <div className="r-row"><span>{t('common.receipt.paid', { method: order.payment })}</span><span>{money(order.tendered ?? order.total)}</span></div>
+      <div className="r-row"><span>{t('common.receipt.paid', { method: methodLabel(order.payment, lang) })}</span><span>{money(order.tendered ?? order.total)}</span></div>
       {order.tendered != null && order.tendered > order.total && (
         <div className="r-row"><span>{t('common.receipt.change')}</span><span>{money(order.tendered - order.total)}</span></div>
       )}
