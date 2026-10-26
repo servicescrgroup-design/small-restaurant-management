@@ -136,7 +136,7 @@ function StockTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
         </td>
         <td>{i.location}</td>
         <td className="num">
-          <strong>{fmtQty(qty)}</strong> <span className="muted">{i.unit}</span>
+          <QtyEdit itemId={i.id} qty={qty} unit={i.unit} />
           {qty === 0 ? <div><Pill tone="bad">{t('inventory.pill.out')}</Pill></div> : low && <div><Pill tone="warn">{t('inventory.pill.low')}</Pill></div>}
         </td>
         <td className="num muted">{i.parLevel ? fmtQty(i.parLevel) : '—'}</td>
@@ -529,6 +529,30 @@ function PrepModal({ itemId, onClose }: { itemId: string; onClose: () => void })
         <div className="muted" style={{ fontSize: 13 }}>{t(canMake === 1 ? 'inventory.prep.enoughOne' : 'inventory.prep.enoughMany', { n: canMake })}</div>
       </div>
     </Modal>
+  );
+}
+
+/** On hand that you click to fix in place: type the real amount or step it with − / +, Enter saves (logged as a count). */
+function QtyEdit({ itemId, qty, unit }: { itemId: string; qty: number; unit: string }) {
+  const { update } = useStore();
+  const { t } = useI18n();
+  const [value, setValue] = useState<number | null>(null);
+  if (value === null) {
+    return (
+      <button className="qty-edit-btn" onClick={() => setValue(Number(qty.toFixed(2)))} title={t('inventory.adjust.hint')}>
+        <strong>{fmtQty(qty)}</strong> <span className="muted">{unit}</span>
+      </button>
+    );
+  }
+  const save = () => { if (Math.abs(value - qty) > 1e-9) update((d) => setCount(d, itemId, Math.max(0, value), t('inventory.adjust.note'))); setValue(null); };
+  return (
+    <span className="qty-edit" onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setValue(null); }}>
+      <button className="icon-btn" aria-label={t('inventory.adjust.less')} onClick={() => setValue(Math.max(0, value - 1))}>−</button>
+      <NumInput autoFocus value={value} onChange={setValue} aria-label={t('inventory.adjust.amount', { unit })} />
+      <button className="icon-btn" aria-label={t('inventory.adjust.more')} onClick={() => setValue(value + 1)}>+</button>
+      <button className="btn sm primary" onClick={save}>{t('inventory.adjust.save')}</button>
+      <button className="icon-btn" aria-label={t('common.cancel')} onClick={() => setValue(null)}>✕</button>
+    </span>
   );
 }
 

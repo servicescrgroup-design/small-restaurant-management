@@ -51,20 +51,24 @@ export default function Menu() {
   const [scanned, setScanned] = useState(0);
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
-  const [cat, setCat] = useState('All');
-  const [tab, setTab] = useState('All');
+  // Tabs and categories to show; tap several to see them together, none = all
+  const [catSel, setCatSel] = useState<string[]>([]);
+  const [tabSel, setTabSel] = useState<string[]>([]);
+  const toggle = (list: string[], x: string) => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x]);
   const target = state.settings.targetFoodCost;
   const tabs = state.settings.menuTabs;
-  const inTab = state.menu.filter((m) => tab === 'All' || tabOf(m, tabs) === tab);
-  const cats = ['All', ...state.settings.menuCategories.filter((c) => tab === 'All' || inTab.some((m) => m.category === c))];
+  const inTab = state.menu.filter((m) => !tabSel.length || tabSel.includes(tabOf(m, tabs)));
+  const cats = ['All', ...state.settings.menuCategories.filter((c) => !tabSel.length || inTab.some((m) => m.category === c))];
+  // Categories picked under tabs that are no longer shown don't count
+  const activeCats = catSel.filter((c) => cats.includes(c));
   const soldOut = (m: MenuItem) => { const { recipe } = dishDefaults(state, m); return recipe.length > 0 && servingsAvailable(state, recipe) === 0; };
-  const inCat = inTab.filter((m) => cat === 'All' || m.category === cat);
+  const inCat = inTab.filter((m) => !activeCats.length || activeCats.includes(m.category));
   const soldOutCount = inCat.filter(soldOut).length;
   const list = inCat
     .filter((m) => !inStockOnly || !soldOut(m))
     .sort((a, b) => state.settings.menuCategories.indexOf(a.category) - state.settings.menuCategories.indexOf(b.category) || a.name.localeCompare(b.name));
 
-  const blank = (): MenuItem => ({ id: uid(), name: '', tab: tab !== 'All' ? tab : tabs[0], category: cat !== 'All' ? cat : state.settings.menuCategories[0] ?? 'Mains', price: 0, recipe: [], active: true });
+  const blank = (): MenuItem => ({ id: uid(), name: '', tab: tabSel.length === 1 ? tabSel[0] : tabs[0], category: activeCats.length === 1 ? activeCats[0] : state.settings.menuCategories[0] ?? 'Mains', price: 0, recipe: [], active: true });
 
   // One row per dish with everything the columns need
   const rows = list.map((m) => {
@@ -158,11 +162,17 @@ export default function Menu() {
       <div className="row" style={{ marginBottom: 14 }}>
         {tabs.length > 1 && (
           <div className="pill-tabs">
-            {['All', ...tabs].map((x) => <button key={x} className={tab === x ? 'active' : ''} onClick={() => { setTab(x); setCat('All'); }}>{x === 'All' ? t('common.all') : x}</button>)}
+            {['All', ...tabs].map((x) => {
+              const on = x === 'All' ? !tabSel.length : tabSel.includes(x);
+              return <button key={x} className={on ? 'active' : ''} aria-pressed={on} onClick={() => setTabSel(x === 'All' ? [] : toggle(tabSel, x))}>{x === 'All' ? t('common.all') : x}</button>;
+            })}
           </div>
         )}
         <div className="seg">
-          {cats.map((c) => <button key={c} className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>{c === 'All' ? t('common.all') : c}</button>)}
+          {cats.map((c) => {
+            const on = c === 'All' ? !activeCats.length : activeCats.includes(c);
+            return <button key={c} className={on ? 'active' : ''} aria-pressed={on} onClick={() => setCatSel(c === 'All' ? [] : toggle(activeCats, c))}>{c === 'All' ? t('common.all') : c}</button>;
+          })}
         </div>
         <button className="btn sm edit-lists-btn" onClick={() => setEditingLists(true)} title={t('menu.lists.title')}>✎ {t('menu.lists.button')}</button>
         <button className={`btn sm delivery-toggle ${inStockOnly ? 'on' : ''}`} aria-pressed={inStockOnly} onClick={() => setInStockOnly(!inStockOnly)} title={t('menu.inStock.hint')}>
@@ -188,7 +198,7 @@ export default function Menu() {
           </div>
         </div>
       ) : (
-        <div className="dish-cards" key={`${tab}|${cat}`}>
+        <div className="dish-cards" key={`${tabSel.join(',')}|${activeCats.join(',')}`}>
           {list.map((m, i) => {
             const { cost, price, recipe } = dishDefaults(state, m);
             const fc = price ? cost / price : 0;
@@ -252,8 +262,8 @@ export default function Menu() {
         </>)}
       </div>}
 
-      {editingLists && <MenuListsEditor onClose={() => setEditingLists(false)} onSaved={() => { setTab('All'); setCat('All'); }} />}
-      {scanning && <MenuScan onClose={() => setScanning(false)} onAdded={(n) => { setScanned(n); setTab('All'); setCat('All'); }} />}
+      {editingLists && <MenuListsEditor onClose={() => setEditingLists(false)} onSaved={() => { setTabSel([]); setCatSel([]); }} />}
+      {scanning && <MenuScan onClose={() => setScanning(false)} onAdded={(n) => { setScanned(n); setTabSel([]); setCatSel([]); }} />}
 
       {viewing && (
         <RecipeSheet
