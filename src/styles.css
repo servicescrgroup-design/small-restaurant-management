@@ -1025,3 +1025,9 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
 .column-table-tools { gap: 8px; }
 .select-all-btn { display: none; }
 @media (max-width: 860px) { .select-all-btn { display: inline-flex; } }
+
+/* Dish photos cut from the menu */
+.scan-dish-photo { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.scan-dish-photo img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; box-shadow: var(--shadow); }
+.scan-dish-photo.off img { opacity: 0.35; filter: grayscale(1); }
+.scan-dish-photo input { width: 15px; height: 15px; }

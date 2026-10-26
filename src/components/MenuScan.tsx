@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { useI18n } from '../i18n';
-import { menuReadStatus, scanMenu, type MenuReadStatus, type ScannedMenu } from '../cloud';
+import { menuReadStatus, scanMenu, type MenuReadStatus, type PhotoBox, type ScannedMenu } from '../cloud';
 import { useAccount } from '../account';
 import { fmtPlanPrice, planCurrency, planPrices } from '../plans';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
@@ -10,8 +10,27 @@ import { Modal, NumInput, Pill } from './ui';
 
 const MAX_PHOTOS = 4;
 
-/** Shrink a photo so it uploads quickly but stays sharp enough to read small print. */
-async function prepPhoto(file: File): Promise<{ media_type: string; data: string; preview: string }> {
+type Prepped = { media_type: string; data: string; preview: string };
+
+/** Shrink a picture so it uploads quickly but stays sharp enough to read small print. */
+function encodeForUpload(src: CanvasImageSource, width: number, height: number): Prepped {
+  for (const [edge, quality] of [[2000, 0.85], [1600, 0.78], [1280, 0.72]] as const) {
+    const scale = Math.min(1, edge / Math.max(width, height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#fff'; // PDFs can be transparent
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    const data = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    if (data.length < 1_000_000 || edge === 1280) return { media_type: 'image/jpeg', data, preview: dataUrl };
+  }
+  throw new Error('unreachable');
+}
+
+async function prepPhoto(file: File): Promise<Prepped[]> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -20,20 +39,33 @@ async function prepPhoto(file: File): Promise<{ media_type: string; data: string
       i.onerror = reject;
       i.src = url;
     });
-    for (const [edge, quality] of [[2000, 0.85], [1600, 0.78], [1280, 0.72]] as const) {
-      const scale = Math.min(1, edge / Math.max(img.naturalWidth, img.naturalHeight));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.naturalWidth * scale);
-      canvas.height = Math.round(img.naturalHeight * scale);
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', quality);
-      const data = dataUrl.slice(dataUrl.indexOf(',') + 1);
-      if (data.length < 1_000_000 || edge === 1280) return { media_type: 'image/jpeg', data, preview: dataUrl };
-    }
-    throw new Error('unreachable');
+    return [encodeForUpload(img, img.naturalWidth, img.naturalHeight)];
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/** Each page of a PDF menu as a picture (pdf.js is loaded only when a PDF is dropped). */
+async function prepPdf(file: File, maxPages: number): Promise<{ pages: Prepped[]; total: number }> {
+  const pdfjs = await import('pdfjs-dist');
+  const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  const doc = await task.promise;
+  const pages: Prepped[] = [];
+  for (let n = 1; n <= Math.min(doc.numPages, maxPages); n++) {
+    const page = await doc.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: Math.min(4, 2200 / Math.max(base.width, base.height)) });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    await page.render({ canvas, viewport }).promise;
+    pages.push(encodeForUpload(canvas, canvas.width, canvas.height));
+  }
+  const total = doc.numPages;
+  await task.destroy(); // frees the PDF worker
+  return { pages, total };
 }
 
 interface Row {
@@ -44,6 +76,31 @@ interface Row {
   categoryTh: string;
   categoryEn: string;
   variants: { th: string; en: string; price: number; on: boolean }[];
+  /** Where the dish's own photo is on the menu (from the reader) */
+  box?: PhotoBox;
+  /** That photo cut out as a small square, and whether to use it */
+  photo?: string;
+  usePhoto: boolean;
+}
+
+/** Cut a dish photo out of a menu picture as a small square (a little padding, centred on the food). */
+async function cropDish(pictureUrl: string, b: PhotoBox, px = 256): Promise<string | undefined> {
+  if (!(b.w > 0.02 && b.h > 0.02 && b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.02 && b.y + b.h <= 1.02)) return undefined;
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = pictureUrl;
+  });
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const side = Math.min(Math.max(b.w * W, b.h * H) * 1.08, W, H);
+  const cx = (b.x + b.w / 2) * W, cy = (b.y + b.h / 2) * H;
+  const sx = Math.min(Math.max(0, cx - side / 2), W - side), sy = Math.min(Math.max(0, cy - side / 2), H - side);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = px;
+  canvas.getContext('2d')!.drawImage(img, sx, sy, side, side, 0, 0, px, px);
+  const webp = canvas.toDataURL('image/webp', 0.82);
+  return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', 0.82);
 }
 
 const MEATS = /ไก่|หมู|เนื้อ|ทะเล|กุ้ง|ปลา|หมึก|เป็ด|chicken|pork|beef|seafood|shrimp|prawn|fish|squid|duck/i;
@@ -58,6 +115,8 @@ function rowsFrom(menu: ScannedMenu): Row[] {
     categoryTh: s.category_th.trim(),
     categoryEn: s.category_en.trim(),
     variants: d.variants.filter((v) => v.price > 0).map((v) => ({ th: v.label_th.trim(), en: v.label_en.trim(), price: v.price, on: true })),
+    box: d.photo?.[0],
+    usePhoto: true,
   }))).filter((r) => (r.nameTh || r.nameEn) && r.variants.length);
 }
 
@@ -96,14 +155,25 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
 
   const addFiles = async (files: FileList | File[]) => {
     setError('');
-    const list = [...files].filter((f) => f.type.startsWith('image/')).slice(0, MAX_PHOTOS - photos.length);
+    const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    const list = [...files].filter((f) => f.type.startsWith('image/') || isPdf(f));
     if (!list.length) return;
+    let room = MAX_PHOTOS - photos.length;
+    const added: Prepped[] = [];
     try {
-      const prepped = await Promise.all(list.map(prepPhoto));
-      setPhotos((p) => [...p, ...prepped.map((x) => ({ ...x, id: uid() }))].slice(0, MAX_PHOTOS));
+      for (const f of list) {
+        if (room <= 0) { setError(t('importer.scan.err.tooMany', { n: MAX_PHOTOS })); break; }
+        if (isPdf(f)) {
+          const { pages, total } = await prepPdf(f, room);
+          added.push(...pages);
+          if (total > pages.length) setError(t('importer.scan.err.pdfPages', { used: pages.length, total }));
+        } else added.push(...(await prepPhoto(f)));
+        room = MAX_PHOTOS - photos.length - added.length;
+      }
     } catch {
       setError(t('importer.scan.err.photo'));
     }
+    if (added.length) setPhotos((p) => [...p, ...added.map((x) => ({ ...x, id: uid() }))].slice(0, MAX_PHOTOS));
   };
 
   const read = async () => {
@@ -115,6 +185,11 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
       if (allowance?.plan === 'trial') setAllowance({ ...allowance, trial_left: menu.trial_left, allowed: (menu.trial_left ?? 0) > 0 });
       const r = rowsFrom(menu);
       if (!r.length) { setError(t('importer.scan.err.nothing')); setStage('pick'); return; }
+      // Cut out each dish's photo from the picture it's in
+      await Promise.all(r.map(async (row) => {
+        const pic = row.box ? photos[row.box.image] : undefined;
+        if (pic && row.box) row.photo = await cropDish(pic.preview, row.box).catch(() => undefined);
+      }));
       setRows(r);
       setExtras(menu.extras.filter((x) => x.price > 0).map((x) => ({ th: x.name_th.trim(), en: x.name_en.trim(), price: x.price, on: true })));
       setUnsure(menu.unsure);
@@ -159,6 +234,7 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
       return {
         id, name: r.nameTh || r.nameEn, ...(r.nameEn && r.nameEn !== r.nameTh ? { nameEn: r.nameEn } : {}),
         tab, category: category(r), price: base, active: true, recipe: [],
+        ...(r.photo && r.usePhoto ? { image: r.photo } : {}),
         ...(groups.length ? { optionGroups: groups } : {}),
       };
     });
@@ -213,7 +289,7 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
             <span className="file-drop-icon" aria-hidden>📷</span>
             <strong>{t('importer.scan.drop')}</strong>
             <span className="muted">{t('importer.scan.dropHint', { n: MAX_PHOTOS })}</span>
-            <input ref={pickRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ''; }} />
+            <input ref={pickRef} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ''; }} />
           </div>
           <div className="row">
             <button className="btn" onClick={() => cameraRef.current?.click()} disabled={photos.length >= MAX_PHOTOS}>📸 {t('importer.scan.camera')}</button>
@@ -249,12 +325,19 @@ export default function MenuScan({ onClose, onAdded }: { onClose: () => void; on
       {stage === 'review' && (
         <>
           <div className="callout info">{t('importer.scan.reviewIntro', { n: rows.length })}</div>
+          {rows.some((r) => r.photo) && <div className="callout ok">📷 {t('importer.scan.photos', { n: rows.filter((r) => r.photo).length })}</div>}
           {unsure.length > 0 && <div className="callout warn">{t('importer.scan.unsure', { names: unsure.join(', ') })}</div>}
           <div className="scan-rows">
             {rows.map((r, i) => (
               <div key={r.key} className={`scan-row reveal ${r.include ? '' : 'off'}`} style={{ ['--i' as string]: i % 8 }}>
                 <input type="checkbox" checked={r.include} onChange={(e) => setRow(r.key, { include: e.target.checked })} aria-label={r.nameTh || r.nameEn} />
                 <div className="scan-names">
+                  {r.photo && (
+                    <label className={`scan-dish-photo ${r.usePhoto ? '' : 'off'}`} title={t('importer.scan.usePhoto')}>
+                      <img src={r.photo} alt="" />
+                      <span><input type="checkbox" checked={r.usePhoto} onChange={(e) => setRow(r.key, { usePhoto: e.target.checked })} /> {t('importer.scan.usePhoto')}</span>
+                    </label>
+                  )}
                   <input value={r.nameTh} onChange={(e) => setRow(r.key, { nameTh: e.target.value })} placeholder={t('importer.scan.nameTh')} aria-label={t('importer.scan.nameTh')} />
                   <input value={r.nameEn} onChange={(e) => setRow(r.key, { nameEn: e.target.value })} placeholder={t('importer.scan.nameEn')} aria-label={t('importer.scan.nameEn')} />
                   <span className="scan-cat">{category(r)}{isDup(r) && <> · <Pill tone="warn">{t('importer.onMenuAlready')}</Pill></>}</span>

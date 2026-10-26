@@ -137,7 +137,9 @@ export function watchSubscription(id: string, onChange: () => void): () => void 
 // ---------- Menu photo reader (api/menu-scan.ts) ----------
 
 export interface ScannedVariant { label_th: string; label_en: string; price: number }
-export interface ScannedDish { name_th: string; name_en: string; variants: ScannedVariant[] }
+/** Where a dish's own photo is on the menu: picture number and a box as fractions of its size */
+export interface PhotoBox { image: number; x: number; y: number; w: number; h: number }
+export interface ScannedDish { name_th: string; name_en: string; variants: ScannedVariant[]; photo?: PhotoBox[] }
 export interface ScannedMenu {
   sections: { category_th: string; category_en: string; dishes: ScannedDish[] }[];
   extras: { name_th: string; name_en: string; price: number }[];

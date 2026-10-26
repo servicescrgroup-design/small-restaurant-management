@@ -35,7 +35,9 @@ For every dish:
 - name_en: a short, natural English menu name a tourist would understand, e.g. "กะเพรา" → "Stir-fried Holy Basil", "ผัดพริกแกง" → "Red Curry Stir-fry", "ต้มยำกุ้ง" → "Tom Yum Goong (Spicy Shrimp Soup)".
 - Variant labels get Thai and English, e.g. ไก่ / Chicken, เนื้อ / Beef, ทะเล / Seafood.
 
-If several photos are given they are parts of the same menu: combine them, and do not repeat a dish that appears twice. If a price is unreadable, give your best reading and add the dish name to "unsure".`;
+Dish photos: if the menu shows a food photo that clearly belongs to one dish (it is labelled with that dish, or sits right beside its name and price), give its position in "photo" as one box: "image" is the 0-based number of the picture it is in (in the order given), and x, y, w, h are the box's left, top, width and height as fractions (0 to 1) of that picture's width and height, tight around the food (the plate or bowl). Leave "photo" empty when the dish has no photo of its own, or when you cannot tell which dish a photo shows — never guess. Use each photo for one dish only.
+
+If several pictures are given they are parts of the same menu: combine them, and do not repeat a dish that appears twice. If a price is unreadable, give your best reading and add the dish name to "unsure".`;
 
 const variant = {
   type: 'object',
@@ -63,8 +65,22 @@ const SCHEMA = {
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['name_th', 'name_en', 'variants'],
-              properties: { name_th: { type: 'string' }, name_en: { type: 'string' }, variants: { type: 'array', items: variant } },
+              required: ['name_th', 'name_en', 'variants', 'photo'],
+              properties: {
+                name_th: { type: 'string' },
+                name_en: { type: 'string' },
+                variants: { type: 'array', items: variant },
+                // Zero or one box around this dish's own photo on the menu
+                photo: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['image', 'x', 'y', 'w', 'h'],
+                    properties: { image: { type: 'integer' }, x: { type: 'number' }, y: { type: 'number' }, w: { type: 'number' }, h: { type: 'number' } },
+                  },
+                },
+              },
             },
           },
         },
@@ -139,7 +155,7 @@ export async function POST(request: Request): Promise<Response> {
           role: 'user',
           content: [
             ...images.map((img) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: img.media_type, data: img.data } })),
-            { type: 'text', text: images.length > 1 ? `These ${images.length} photos are one menu. List every dish.` : 'List every dish on this menu.' },
+            { type: 'text', text: images.length > 1 ? `These ${images.length} pictures (numbered 0 to ${images.length - 1}) are one menu. List every dish.` : 'List every dish on this menu (picture 0).' },
           ],
         }],
       })
