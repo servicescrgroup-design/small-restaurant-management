@@ -92,6 +92,13 @@ function StockTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
   const { user } = useAuth();
   const { t } = useI18n();
   const [selling, setSelling] = useState<MenuItem | null>(null);
+  // Each section can be folded down to its header; remembered on this device
+  const [folded, setFolded] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('mise.inventoryFolded') ?? '[]') as string[]; } catch { return []; } });
+  const toggleFold = (id: string) => setFolded((f) => {
+    const next = f.includes(id) ? f.filter((x) => x !== id) : [...f, id];
+    try { localStorage.setItem('mise.inventoryFolded', JSON.stringify(next)); } catch { /* ignore */ }
+    return next;
+  });
   const sortItems = (list: InvItem[]) => list.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   const ready = sortItems(state.items.filter((i) => i.kind === 'prep' && match(i)));
   const ingredients = sortItems(state.items.filter((i) => i.kind === 'raw' && match(i)));
@@ -149,6 +156,12 @@ function StockTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
     );
   });
 
+  const foldBtn = (id: string) => (
+    <button className="fold-btn" aria-expanded={!folded.includes(id)} onClick={() => toggleFold(id)} title={t(folded.includes(id) ? 'inventory.stock.expand' : 'inventory.stock.collapse')} aria-label={t(folded.includes(id) ? 'inventory.stock.expand' : 'inventory.stock.collapse')}>
+      <svg aria-hidden viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+
   const head = (
     <thead>
       <tr><th>{t('inventory.col.item')}</th><th>{t('inventory.col.location')}</th><th className="num">{t('inventory.col.onHand')}</th><th className="num">{t('inventory.col.par')}</th><th className="num">{t('inventory.col.avgCost')}</th><th className="num">{t('inventory.col.value')}</th><th>{t('inventory.col.nextExpiry')}</th><th /></tr>
@@ -159,10 +172,11 @@ function StockTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
     <div className="grid">
       <div className="muted" style={{ textAlign: 'right' }}>{t('inventory.stock.totalValue')} <strong>{money(totalValue)}</strong></div>
 
-      <section className="card stock-section ready">
+      <section className={`card stock-section ready ${folded.includes('ready') ? 'folded' : ''}`}>
         <div className="card-head">
-          <div>
-            <h2>🍱 {t('inventory.ready.title')} <span className="muted count">· {ready.length}</span></h2>
+          <div className="fold-head">
+            {foldBtn('ready')}
+            <h2 onClick={() => toggleFold('ready')}>🍱 {t('inventory.ready.title')} <span className="muted count">· {ready.length}</span></h2>
             <p>{t('inventory.ready.hint')}</p>
           </div>
           <div className="row">
@@ -170,15 +184,16 @@ function StockTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
             <button className="btn sm" onClick={() => setDialog({ kind: 'item', item: newItemOf('prep', state.settings), isNew: true })}>{t('inventory.addPrep')}</button>
           </div>
         </div>
-        {ready.length === 0 ? <Empty title={t('inventory.ready.emptyTitle')}>{t('inventory.ready.emptyBody')}</Empty> : (
+        {folded.includes('ready') ? null : ready.length === 0 ? <Empty title={t('inventory.ready.emptyTitle')}>{t('inventory.ready.emptyBody')}</Empty> : (
           <div className="table-wrap"><table className="table">{head}<tbody>{rows(ready)}</tbody></table></div>
         )}
       </section>
 
-      <section className="card stock-section">
+      <section className={`card stock-section ${folded.includes('ingredients') ? 'folded' : ''}`}>
         <div className="card-head">
-          <div>
-            <h2>🥬 {t('inventory.ingredients.title')} <span className="muted count">· {ingredients.length}</span></h2>
+          <div className="fold-head">
+            {foldBtn('ingredients')}
+            <h2 onClick={() => toggleFold('ingredients')}>🥬 {t('inventory.ingredients.title')} <span className="muted count">· {ingredients.length}</span></h2>
             <p>{t('inventory.ingredients.hint')}</p>
           </div>
           <div className="row">
@@ -186,7 +201,7 @@ function StockTable({ match, setDialog }: { match: (i: InvItem) => boolean; setD
             <button className="btn sm" onClick={() => setDialog({ kind: 'item', item: newItemOf('raw', state.settings), isNew: true })}>{t('inventory.addIngredient')}</button>
           </div>
         </div>
-        {ingredients.length === 0 ? <Empty title={t('inventory.stock.emptyTitle')}>{t('inventory.stock.emptyBody')}</Empty> : (
+        {folded.includes('ingredients') ? null : ingredients.length === 0 ? <Empty title={t('inventory.stock.emptyTitle')}>{t('inventory.stock.emptyBody')}</Empty> : (
           <div className="table-wrap"><table className="table">{head}<tbody>{rows(ingredients)}</tbody></table></div>
         )}
       </section>

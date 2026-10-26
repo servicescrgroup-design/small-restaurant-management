@@ -45,6 +45,9 @@ export default function Menu() {
   const setShowDelivery = (v: boolean) => { setShowDeliveryState(v); try { localStorage.setItem(DELIVERY_KEY, v ? '1' : '0'); } catch { /* ignore */ } };
   const dSet = deliveryOf(state.settings);
   const setDeliveryPrice = (id: string, n: number) => update((d) => { const x = d.menu.find((y) => y.id === id); if (x) x.deliveryPrice = n > 0 ? n : undefined; });
+  // Hide dishes whose recipe can't be made from the stock on hand
+  const [inStockOnly, setInStockOnlyState] = useState(() => { try { return localStorage.getItem('mise-menu-in-stock') === '1'; } catch { return false; } });
+  const setInStockOnly = (v: boolean) => { setInStockOnlyState(v); try { localStorage.setItem('mise-menu-in-stock', v ? '1' : '0'); } catch { /* ignore */ } };
   const [scanned, setScanned] = useState(0);
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
@@ -54,8 +57,11 @@ export default function Menu() {
   const tabs = state.settings.menuTabs;
   const inTab = state.menu.filter((m) => tab === 'All' || tabOf(m, tabs) === tab);
   const cats = ['All', ...state.settings.menuCategories.filter((c) => tab === 'All' || inTab.some((m) => m.category === c))];
-  const list = inTab
-    .filter((m) => cat === 'All' || m.category === cat)
+  const soldOut = (m: MenuItem) => { const { recipe } = dishDefaults(state, m); return recipe.length > 0 && servingsAvailable(state, recipe) === 0; };
+  const inCat = inTab.filter((m) => cat === 'All' || m.category === cat);
+  const soldOutCount = inCat.filter(soldOut).length;
+  const list = inCat
+    .filter((m) => !inStockOnly || !soldOut(m))
     .sort((a, b) => state.settings.menuCategories.indexOf(a.category) - state.settings.menuCategories.indexOf(b.category) || a.name.localeCompare(b.name));
 
   const blank = (): MenuItem => ({ id: uid(), name: '', tab: tab !== 'All' ? tab : tabs[0], category: cat !== 'All' ? cat : state.settings.menuCategories[0] ?? 'Mains', price: 0, recipe: [], active: true });
@@ -159,6 +165,9 @@ export default function Menu() {
           {cats.map((c) => <button key={c} className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>{c === 'All' ? t('common.all') : c}</button>)}
         </div>
         <button className="btn sm edit-lists-btn" onClick={() => setEditingLists(true)} title={t('menu.lists.title')}>✎ {t('menu.lists.button')}</button>
+        <button className={`btn sm delivery-toggle ${inStockOnly ? 'on' : ''}`} aria-pressed={inStockOnly} onClick={() => setInStockOnly(!inStockOnly)} title={t('menu.inStock.hint')}>
+          <span className="switch" aria-hidden><span /></span>{t('menu.inStock.toggle')}{soldOutCount > 0 && <span className="toggle-count">{t('menu.inStock.count', { n: soldOutCount })}</span>}
+        </button>
         <button className={`btn sm delivery-toggle ${showDelivery ? 'on' : ''}`} aria-pressed={showDelivery} onClick={() => setShowDelivery(!showDelivery)}>
           <span className="switch" aria-hidden><span /></span>🛵 {t('menu.delivery.toggle')}
         </button>

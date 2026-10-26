@@ -11,6 +11,7 @@ import { addDays, fmtDate, localDate, uid } from '../utils';
 type Range = 'month' | 'lastMonth' | '30' | 'all';
 
 const monthStart = (d: string) => `${d.slice(0, 7)}-01`;
+const lineText = (l: PurchaseLine) => (l.qty ? `${l.description} ×${l.qty}${l.unit ? ` ${l.unit}` : ''}` : l.description);
 
 /** Everything the shop spends: stock bought (goes into Inventory) and running costs. */
 export default function Purchases() {
@@ -88,7 +89,11 @@ export default function Purchases() {
                     <td className="nowrap">{fmtDate(p.date)}</td>
                     <td className="nowrap">{typeInfo(p.type).icon} {t(`purchases.type.${p.type}`)}</td>
                     <td>{p.supplier || <span className="muted">—</span>}</td>
-                    <td>{p.lines.map((l) => (l.qty ? `${l.description} ×${l.qty}${l.unit ? ` ${l.unit}` : ''}` : l.description)).join(', ')}{p.receipt && ' 🧾'}</td>
+                    <td className="purchase-items" title={p.lines.map(lineText).join('\n')}>
+                      <span className="purchase-items-names">{p.lines.slice(0, 2).map((l) => l.description).join(', ')}</span>
+                      {p.lines.length > 2 && <span className="purchase-items-more">{t('purchases.more', { n: p.lines.length - 2 })}</span>}
+                      {p.receipt && ' 🧾'}
+                    </td>
                     <td>{p.payment ? methodLabel(p.payment, lang) : <span className="muted">—</span>}</td>
                     <td className="num"><strong>{money(p.total)}</strong></td>
                     <td className="actions"><button className="btn sm">{t('purchases.view')}</button></td>
