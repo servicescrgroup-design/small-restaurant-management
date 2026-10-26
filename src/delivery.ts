@@ -17,6 +17,16 @@ export const appCut = (d: DeliverySettings) => (d.gpPct / 100) * (1 + d.vatPct /
 
 export const roundUpTo = (n: number, step: number) => (step > 0 ? Math.ceil(n / step - 1e-9) * step : Math.ceil(n * 100 - 1e-9) / 100);
 
+/** The next whole price at or above n that ends in this digit: 315.17 with 9 → 319, 320 with 9 → 329. */
+export const roundUpToEnding = (n: number, digit: number) => {
+  const whole = Math.ceil(n - 1e-9);
+  return whole + ((digit - (whole % 10)) + 10) % 10;
+};
+
+/** Apply the shop's rounding choice to a suggested price. */
+export const roundPrice = (n: number, d: DeliverySettings) =>
+  d.endsIn != null && d.endsIn >= 0 && d.endsIn <= 9 ? roundUpToEnding(n, d.endsIn) : roundUpTo(n, d.roundTo);
+
 export const packagingOf = (m: MenuItem, d: DeliverySettings) => m.packagingCost ?? d.packaging;
 
 export interface ChannelNumbers { price: number; foodCost: number; packaging: number; appFee: number; received: number; profit: number; margin: number }
@@ -25,7 +35,7 @@ export interface ChannelNumbers { price: number; foodCost: number; packaging: nu
 export function priceDish(price: number, foodCost: number, m: MenuItem, d: DeliverySettings) {
   const cut = appCut(d);
   const packaging = packagingOf(m, d);
-  const recommended = cut < 1 ? roundUpTo((price + packaging) / (1 - cut), d.roundTo) : 0;
+  const recommended = cut < 1 ? roundPrice((price + packaging) / (1 - cut), d) : 0;
   const channel = (p: number, pack: number, fee: number): ChannelNumbers => {
     const received = p - fee;
     const profit = received - foodCost - pack;

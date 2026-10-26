@@ -6,6 +6,7 @@ import { RecipeEditor } from '../components/Recipe';
 import { Plate, RecipeCard, paletteOf, type CardLine } from '../components/RecipeCard';
 import MenuScan from '../components/MenuScan';
 import MenuListsEditor from '../components/MenuListsEditor';
+import ColumnTable, { type Column } from '../components/ColumnTable';
 import { appCut, deliveryOf, priceDish } from '../delivery';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { dishName, otherDishName, pct, uid } from '../utils';
@@ -55,6 +56,81 @@ export default function Menu() {
     .sort((a, b) => state.settings.menuCategories.indexOf(a.category) - state.settings.menuCategories.indexOf(b.category) || a.name.localeCompare(b.name));
 
   const blank = (): MenuItem => ({ id: uid(), name: '', tab: tab !== 'All' ? tab : tabs[0], category: cat !== 'All' ? cat : state.settings.menuCategories[0] ?? 'Mains', price: 0, recipe: [], active: true });
+
+  // One row per dish with everything the columns need
+  const rows = list.map((m) => {
+    const { cost, price, recipe } = dishDefaults(state, m);
+    const groups = m.optionGroups?.length ?? 0;
+    return {
+      m, cost, price, recipe, groups,
+      fc: price ? cost / price : 0,
+      avail: recipe.length ? servingsAvailable(state, recipe) : null,
+      dp: priceDish(price, cost, m, dSet),
+    };
+  });
+  type Row = (typeof rows)[number];
+  const priceText = (r: Row) => (r.groups ? t('menu.fromPrice', { price: money(r.price) }) : money(r.price));
+  const editCol: Column<Row> = { id: 'edit', label: '', width: 70, min: 60, fixed: 'end', className: 'actions', render: () => <button className="btn sm">{t('common.edit')}</button> };
+  const itemCol: Column<Row> = {
+    id: 'item', label: t('menu.col.item'), width: 240, min: 160, fixed: 'start',
+    render: (r) => (
+      <div className="cell-thumb">
+        <Thumb src={r.m.image} name={r.m.name} size="xs" />
+        <div className="cell-text">
+          <strong title={dishName(r.m, lang)}>{dishName(r.m, lang)}</strong>
+          {otherDishName(r.m, lang) && <div className="sub" title={otherDishName(r.m, lang)}>{otherDishName(r.m, lang)}</div>}
+          {r.m.description && <div className="sub desc" title={r.m.description}>{r.m.description}</div>}
+          {r.groups > 0 && <div className="sub" title={r.m.optionGroups!.map((g) => g.name).join(' · ')}>{r.m.optionGroups!.map((g) => g.name).join(' · ')}</div>}
+        </div>
+      </div>
+    ),
+  };
+  const menuColumns: Column<Row>[] = [
+    itemCol,
+    { id: 'tab', label: t('menu.col.tab'), width: 90, render: (r) => <span title={tabOf(r.m, tabs)}>{tabOf(r.m, tabs)}</span> },
+    { id: 'category', label: t('menu.col.category'), width: 120, render: (r) => <span title={r.m.category}>{r.m.category}</span> },
+    { id: 'price', label: t('menu.col.price'), width: 115, num: true, render: priceText },
+    { id: 'cost', label: t('menu.col.plateCost'), width: 90, num: true, render: (r) => money(r.cost) },
+    { id: 'fc', label: t('menu.col.foodCost'), width: 105, num: true, render: (r) => <Pill tone={r.recipe.length ? foodCostTone(r.fc, target) : 'muted'}>{r.recipe.length ? pct(r.fc) : t('menu.noRecipe')}</Pill> },
+    { id: 'profit', label: t('menu.col.profit'), width: 95, num: true, render: (r) => money(r.price - r.cost) },
+    { id: 'avail', label: t('menu.col.canMake'), width: 80, num: true, render: (r) => (r.avail === null ? <span className="muted">—</span> : r.avail === 0 ? <Pill tone="bad">{t('menu.soldOut')}</Pill> : r.avail) },
+    { id: 'status', label: t('menu.col.status'), width: 95, render: (r) => (r.m.active ? <Pill tone="ok">{t('menu.onMenu')}</Pill> : <Pill>{t('menu.hidden')}</Pill>) },
+    editCol,
+  ];
+  const deliveryColumns: Column<Row>[] = [
+    itemCol,
+    { id: 'price', label: t('menu.col.price'), width: 105, num: true, render: priceText },
+    { id: 'cost', label: t('menu.col.plateCost'), width: 95, num: true, render: (r) => money(r.cost) },
+    { id: 'inStoreProfit', label: t('menu.delivery.col.inStoreProfit'), width: 115, num: true, render: (r) => money(r.dp.inStore.profit) },
+    {
+      id: 'recommended', label: t('menu.delivery.col.recommended'), width: 140, num: true,
+      render: (r) => (
+        <>
+          {money(r.dp.recommended)}
+          {r.m.deliveryPrice !== r.dp.recommended && (
+            <button className="btn sm use-rec" onClick={(e) => { e.stopPropagation(); setDeliveryPrice(r.m.id, r.dp.recommended); }}>{t('menu.delivery.use')}</button>
+          )}
+        </>
+      ),
+    },
+    {
+      id: 'deliveryPrice', label: t('menu.delivery.col.price'), width: 125, num: true, className: 'delivery-col',
+      render: (r) => (
+        <span onClick={(e) => e.stopPropagation()}>
+          <NumInput className={r.m.deliveryPrice ? '' : 'unset'} value={r.m.deliveryPrice ?? 0} placeholder={t('menu.delivery.enter')} onChange={(n) => setDeliveryPrice(r.m.id, n)} aria-label={t('menu.delivery.col.price')} />
+        </span>
+      ),
+    },
+    {
+      id: 'received', label: t('menu.delivery.col.received'), width: 110, num: true,
+      render: (r) => { const shown = r.dp.delivery ?? r.dp.atRecommended; return <>{money(shown.received)}{!r.dp.delivery && <div className="sub">{t('menu.delivery.atRecommended')}</div>}</>; },
+    },
+    {
+      id: 'deliveryProfit', label: t('menu.delivery.col.profit'), width: 110, num: true,
+      render: (r) => { const shown = r.dp.delivery ?? r.dp.atRecommended; return <Pill tone={shown.profit < r.dp.inStore.profit - 0.005 ? 'warn' : 'ok'}>{money(shown.profit)}</Pill>; },
+    },
+    editCol,
+  ];
 
   return (
     <>
@@ -144,81 +220,15 @@ export default function Menu() {
         {list.length === 0 ? (
           <Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty>
         ) : (
-          <div className={`table-wrap ${showDelivery ? 'delivery-wrap' : ''}`}>
-            <table className={`table ${showDelivery ? 'delivery-table' : ''}`}>
-              <thead>
-                {showDelivery ? (
-                  <tr>
-                    <th>{t('menu.col.item')}</th><th className="num">{t('menu.col.price')}</th><th className="num">{t('menu.col.plateCost')}</th>
-                    <th className="num">{t('menu.delivery.col.inStoreProfit')}</th>
-                    <th className="num">{t('menu.delivery.col.recommended')}</th><th className="num delivery-col">{t('menu.delivery.col.price')}</th>
-                    <th className="num">{t('menu.delivery.col.received')}</th><th className="num">{t('menu.delivery.col.profit')}</th><th />
-                  </tr>
-                ) : (
-                  <tr>
-                    <th>{t('menu.col.item')}</th><th>{t('menu.col.tab')}</th><th>{t('menu.col.category')}</th><th className="num">{t('menu.col.price')}</th><th className="num">{t('menu.col.plateCost')}</th>
-                    <th className="num">{t('menu.col.foodCost')}</th><th className="num">{t('menu.col.profit')}</th><th className="num">{t('menu.col.canMake')}</th><th>{t('menu.col.status')}</th><th />
-                  </tr>
-                )}
-              </thead>
-              <tbody>
-                {list.map((m) => {
-                  const { cost, price, recipe } = dishDefaults(state, m);
-                  const fc = price ? cost / price : 0;
-                  const avail = recipe.length ? servingsAvailable(state, recipe) : null;
-                  const groups = m.optionGroups?.length ?? 0;
-                  return (
-                    <tr key={m.id} className="clickable" onClick={() => setEditing(structuredClone(m))}>
-                      <td>
-                        <div className="cell-thumb">
-                          <Thumb src={m.image} name={m.name} size="xs" />
-                          <div>
-                            <strong>{dishName(m, lang)}</strong>
-                            {otherDishName(m, lang) && <div className="sub">{otherDishName(m, lang)}</div>}
-                            {m.description && <div className="sub">{m.description}</div>}
-                            {groups > 0 && <div className="sub">{m.optionGroups!.map((g) => g.name).join(' · ')}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      {showDelivery ? (() => {
-                        const dp = priceDish(price, cost, m, dSet);
-                        const shown = dp.delivery ?? dp.atRecommended;
-                        return (
-                          <>
-                            <td className="num">{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</td>
-                            <td className="num">{money(cost)}</td>
-                            <td className="num">{money(dp.inStore.profit)}</td>
-                            <td className="num">
-                              {money(dp.recommended)}
-                              {m.deliveryPrice !== dp.recommended && (
-                                <button className="btn sm use-rec" onClick={(e) => { e.stopPropagation(); setDeliveryPrice(m.id, dp.recommended); }}>{t('menu.delivery.use')}</button>
-                              )}
-                            </td>
-                            <td className="num delivery-col" onClick={(e) => e.stopPropagation()}>
-                              <NumInput className={m.deliveryPrice ? '' : 'unset'} value={m.deliveryPrice ?? 0} placeholder={t('menu.delivery.enter')} onChange={(n) => setDeliveryPrice(m.id, n)} aria-label={t('menu.delivery.col.price')} />
-                            </td>
-                            <td className="num">{money(shown.received)}{!dp.delivery && <div className="sub">{t('menu.delivery.atRecommended')}</div>}</td>
-                            <td className="num"><Pill tone={shown.profit < dp.inStore.profit - 0.005 ? 'warn' : 'ok'}>{money(shown.profit)}</Pill></td>
-                            <td className="actions"><button className="btn sm">{t('common.edit')}</button></td>
-                          </>
-                        );
-                      })() : (<>
-                      <td>{tabOf(m, tabs)}</td>
-                      <td>{m.category}</td>
-                      <td className="num">{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</td>
-                      <td className="num">{money(cost)}</td>
-                      <td className="num"><Pill tone={recipe.length ? foodCostTone(fc, target) : 'muted'}>{recipe.length ? pct(fc) : t('menu.noRecipe')}</Pill></td>
-                      <td className="num">{money(price - cost)}</td>
-                      <td className="num">{avail === null ? <span className="muted">—</span> : avail === 0 ? <Pill tone="bad">{t('menu.soldOut')}</Pill> : avail}</td>
-                      <td>{m.active ? <Pill tone="ok">{t('menu.onMenu')}</Pill> : <Pill>{t('menu.hidden')}</Pill>}</td>
-                      <td className="actions"><button className="btn sm">{t('common.edit')}</button></td>
-                      </>)}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ColumnTable
+            key={showDelivery ? 'delivery' : 'menu'}
+            storageKey={showDelivery ? 'mise-menu-cols-delivery' : 'mise-menu-cols'}
+            className={showDelivery ? 'delivery-table' : ''}
+            columns={showDelivery ? deliveryColumns : menuColumns}
+            rows={rows}
+            rowKey={(r) => r.m.id}
+            onRowClick={(r) => setEditing(structuredClone(r.m))}
+          />
         )}
       </div>}
 
@@ -287,8 +297,17 @@ function DeliveryBar({ list }: { list: MenuItem[] }) {
         <Field label={t('menu.delivery.vat')}><div className="input-unit"><NumInput value={d.vatPct} onChange={(n) => set({ vatPct: Math.max(0, n) })} /><span>%</span></div></Field>
         <Field label={t('menu.delivery.packaging')} hint={t('menu.delivery.packagingHint')}><NumInput value={d.packaging} onChange={(n) => set({ packaging: Math.max(0, n) })} /></Field>
         <Field label={t('menu.delivery.round')}>
-          <select value={d.roundTo} onChange={(e) => set({ roundTo: Number(e.target.value) })}>
-            {[0, 1, 5, 10].map((r) => <option key={r} value={r}>{r ? t('menu.delivery.roundTo', { n: money(r) }) : t('menu.delivery.noRound')}</option>)}
+          <select
+            value={d.endsIn != null ? `e${d.endsIn}` : `r${d.roundTo}`}
+            onChange={(e) => {
+              const v = e.target.value;
+              set(v.startsWith('e') ? { endsIn: Number(v.slice(1)) } : { roundTo: Number(v.slice(1)), endsIn: undefined });
+            }}
+          >
+            {[0, 1, 5, 10].map((r) => <option key={`r${r}`} value={`r${r}`}>{r ? t('menu.delivery.roundTo', { n: money(r) }) : t('menu.delivery.noRound')}</option>)}
+            <optgroup label={t('menu.delivery.endsInGroup')}>
+              {[9, 5, 0, 1, 2, 3, 4, 6, 7, 8].map((n) => <option key={`e${n}`} value={`e${n}`}>{t('menu.delivery.endsIn', { n, example: money(310 + n) })}</option>)}
+            </optgroup>
           </select>
         </Field>
       </div>

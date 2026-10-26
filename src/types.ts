@@ -36,6 +36,8 @@ export interface DeliverySettings {
   packaging: number;
   /** Round recommended prices up to this (1, 5, 10); 0 = to the satang */
   roundTo: number;
+  /** Instead, round up to the next whole price ending in this digit (9 → ฿319); overrides roundTo */
+  endsIn?: number;
 }
 
 export interface PaymentFee {
