@@ -4,6 +4,7 @@ import dashboard from './dashboard';
 import pos from './pos';
 import orders from './orders';
 import inventory from './inventory';
+import purchases from './purchases';
 import menu from './menu';
 import calc from './calc';
 import setup from './setup';
@@ -32,7 +33,7 @@ export function defineMessages<E extends Messages>(en: E, th: { [K in keyof E]: 
   return { en, th: th as Messages };
 }
 
-const NAMESPACES: Record<string, { en: Messages; th: Messages }> = { common, dashboard, pos, orders, inventory, menu, calc, setup, importer, account, guide };
+const NAMESPACES: Record<string, { en: Messages; th: Messages }> = { common, dashboard, pos, orders, inventory, purchases, menu, calc, setup, importer, account, guide };
 
 export type Vars = Record<string, string | number>;
 export type TFunc = (key: string, vars?: Vars) => string;

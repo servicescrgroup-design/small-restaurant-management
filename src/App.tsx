@@ -8,6 +8,7 @@ import POS from './pages/POS';
 import Orders from './pages/Orders';
 import Inventory from './pages/Inventory';
 import Menu from './pages/Menu';
+import Purchases from './pages/Purchases';
 import Calculators from './pages/Calculators';
 import Setup from './pages/Setup';
 import Account from './pages/Account';
@@ -16,13 +17,14 @@ import Tour, { useStartOwnShop } from './components/Tour';
 import { TrialBanner, TrialEnded } from './components/Billing';
 import { useAccount } from './account';
 
-export type Page = 'dashboard' | 'pos' | 'orders' | 'inventory' | 'menu' | 'calculators' | 'setup' | 'account';
+export type Page = 'dashboard' | 'pos' | 'orders' | 'inventory' | 'purchases' | 'menu' | 'calculators' | 'setup' | 'account';
 
 const NAV: { id: Page; icon: string }[] = [
   { id: 'dashboard', icon: '▦' },
   { id: 'pos', icon: '◉' },
   { id: 'orders', icon: '≡' },
   { id: 'inventory', icon: '▤' },
+  { id: 'purchases', icon: '¤' },
   { id: 'menu', icon: '☰' },
   { id: 'calculators', icon: '±' },
   { id: 'setup', icon: '⚙' },
@@ -53,6 +55,9 @@ function Shell() {
   const [requested, setRequested] = useState<Page>(fromHash);
   // Phones: the nav is a drawer opened from the top bar
   const [navOpen, setNavOpen] = useState(false);
+  // Computers: the sidebar can shrink to icons, remembered on this device
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('mise.navCollapsed') === '1'; } catch { return false; } });
+  const toggleCollapsed = () => setCollapsed((c) => { try { localStorage.setItem('mise.navCollapsed', c ? '0' : '1'); } catch { /* ignore */ } return !c; });
   // Staff who land on an owner-only page (or the default dashboard) go to the POS.
   const page: Page = canAccess(role, requested) ? requested : 'pos';
 
@@ -72,7 +77,7 @@ function Shell() {
   }, [navOpen]);
 
   return (
-    <div className={`app ${page === 'pos' ? 'is-pos' : ''}`}>
+    <div className={`app ${page === 'pos' ? 'is-pos' : ''} ${collapsed ? 'nav-collapsed' : ''}`}>
       <header className="mobile-bar">
         <span className="brand-mark" aria-hidden>M</span>
         <div className="mobile-bar-title">
@@ -86,19 +91,22 @@ function Shell() {
         <button className="nav-close" aria-label={t('common.close')} onClick={() => setNavOpen(false)}>✕</button>
         <div className="brand">
           <span className="brand-mark">M</span>
-          <div>
+          <div className="brand-text">
             <div className="brand-name">Mise</div>
             <div className="brand-store">{state.settings.storeName}</div>
           </div>
         </div>
+        <button className="nav-collapse" onClick={toggleCollapsed} aria-expanded={!collapsed} title={t(collapsed ? 'common.nav.expand' : 'common.nav.collapse')} aria-label={t(collapsed ? 'common.nav.expand' : 'common.nav.collapse')}>
+          {collapsed ? '»' : '«'}
+        </button>
         {NAV.filter((n) => canAccess(role, n.id)).map((n) => (
-          <button key={n.id} className={`nav-btn ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
+          <button key={n.id} className={`nav-btn ${page === n.id ? 'active' : ''}`} onClick={() => go(n.id)} title={collapsed ? t(`common.nav.${n.id}`) : undefined}>
             <span className="nav-icon" aria-hidden>{n.icon}</span>
             <span className="nav-label">{t(`common.nav.${n.id}`)}</span>
           </button>
         ))}
         <div className="sidebar-user">
-          <div className="user-chip">
+          <div className="user-chip" title={collapsed ? user?.name : undefined}>
             <span className="avatar" aria-hidden>{user?.name.charAt(0).toUpperCase()}</span>
             <div style={{ minWidth: 0 }}>
               <div className="user-name">{user?.name}</div>
@@ -109,7 +117,7 @@ function Shell() {
             <LangSwitch className="sidebar-lang" />
             <ThemeSwitch className="sidebar-lang" />
           </div>
-          <button className="nav-btn" onClick={logout} title={t('common.nav.lockHint')}>
+          <button className="nav-btn" onClick={logout} title={collapsed ? t('common.nav.lock') : t('common.nav.lockHint')}>
             <span className="nav-icon" aria-hidden>⏻</span>
             <span className="nav-label">{t('common.nav.lock')}</span>
           </button>
@@ -129,6 +137,7 @@ function Shell() {
         {page === 'pos' && <POS />}
         {page === 'orders' && <Orders />}
         {page === 'inventory' && <Inventory />}
+        {page === 'purchases' && <Purchases />}
         {page === 'menu' && <Menu />}
         {page === 'calculators' && <Calculators go={go} />}
         {page === 'setup' && <Setup go={go} />}

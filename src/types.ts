@@ -252,6 +252,43 @@ export interface Adjustment {
   note?: string;
 }
 
+export type PurchaseType =
+  | 'ingredients' | 'prepacked' | 'drinks' | 'packaging'
+  | 'supplies' | 'equipment' | 'investment' | 'repairs' | 'rent' | 'utilities' | 'wages' | 'marketing' | 'fees' | 'other';
+
+export interface PurchaseLine {
+  id: string;
+  /** What was bought (for stock lines, the inventory item's name) */
+  description: string;
+  /** Stock lines: the inventory item that received this stock */
+  itemId?: string;
+  qty?: number;
+  unit?: string;
+  expiresAt?: string;
+  /** Prepacked lines: the menu dish that sells this item (one sale takes one from stock) */
+  menuItemId?: string;
+  /** Prepacked lines: put the item on the menu as a new dish when saving */
+  newDish?: { price: number; category: string };
+  /** Line total paid */
+  amount: number;
+}
+
+/** Money spent: stock bought (adds batches to inventory) or a running cost (rent, equipment…). */
+export interface Purchase {
+  id: string;
+  date: string; // YYYY-MM-DD
+  type: PurchaseType;
+  supplier?: string;
+  lines: PurchaseLine[];
+  total: number;
+  payment?: string;
+  note?: string;
+  /** Small photo of the receipt (data URL) */
+  receipt?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
 export interface AppState {
   version: 1;
   isDemo: boolean;
@@ -268,4 +305,6 @@ export interface AppState {
   menu: MenuItem[];
   orders: Order[];
   adjustments: Adjustment[];
+  /** Money spent on stock and running costs (Purchases page) */
+  purchases?: Purchase[];
 }

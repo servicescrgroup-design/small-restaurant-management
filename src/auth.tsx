@@ -11,7 +11,7 @@ export { findByPin, isValidPin, makePinCreds, newStaff } from './pin';
 
 // ---------- Permissions ----------
 
-export const OWNER_ONLY: Page[] = ['dashboard', 'menu', 'setup', 'account'];
+export const OWNER_ONLY: Page[] = ['dashboard', 'purchases', 'menu', 'setup', 'account'];
 export const canAccess = (role: StaffRole | undefined, page: Page) => role === 'owner' || !OWNER_ONLY.includes(page);
 
 // ---------- Session ----------

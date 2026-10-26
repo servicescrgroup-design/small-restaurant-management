@@ -40,6 +40,8 @@ export default function Dashboard({ go }: { go: (p: Page) => void }) {
   const prev = paid.filter((x) => x.day >= prevStart && x.day < start).map((x) => x.o);
   const now = summarize(cur);
   const before = summarize(prev);
+  // Everything bought in the range (stock and running costs), from the Purchases page
+  const spent = (state.purchases ?? []).filter((p) => p.date >= start && p.date <= today).reduce((a, p) => a + p.total, 0);
   const target = s.targetFoodCost / 100;
 
   const waste = state.adjustments
@@ -118,6 +120,13 @@ export default function Dashboard({ go }: { go: (p: Page) => void }) {
           sub={now.fees > 0 ? t('dashboard.stat.grossProfitSubFees', { fees: money(now.fees) }) : t('dashboard.stat.grossProfitSub')}
         />
         <Stat label={t('dashboard.stat.waste')} value={money(waste)} tone={waste > 0 ? 'warn' : undefined} sub={now.net ? t('dashboard.stat.wasteSub', { pct: pct(waste / now.net) }) : rangeLabel} />
+        <Stat label={t('dashboard.stat.purchases')} value={money(spent)} sub={<button className="link-btn" onClick={() => go('purchases')}>{t('dashboard.stat.purchasesSub')}</button>} />
+        <Stat
+          label={t('dashboard.stat.cashLeft')}
+          value={money(now.net - now.fees - spent)}
+          tone={spent && now.net - now.fees - spent < 0 ? 'bad' : undefined}
+          sub={t('dashboard.stat.cashLeftSub')}
+        />
         <Stat label={t('dashboard.stat.inventory')} value={money(invValue)} sub={t('dashboard.stat.inventorySub', { n: fmtInt(state.batches.filter((b) => b.qtyRemaining > 0).length) })} />
       </div>
 

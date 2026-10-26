@@ -57,6 +57,7 @@ export const emptyState = (): AppState => ({
   menu: [],
   orders: [],
   adjustments: [],
+  purchases: [],
 });
 
 const raw = (id: string, name: string, unit: string, category: string, location: string, parLevel: number, shelfLifeDays: number, defaultCost: number, supplier: string): InvItem =>

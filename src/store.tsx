@@ -166,7 +166,8 @@ export function normalize(s: AppState): AppState {
   const settings = { ...defaultSettings(), ...s.settings };
   // "Cash" and "เงินสด" are the same method: keep one
   settings.paymentMethods = dedupeMethods(settings.paymentMethods);
-  return { ...s, staff, tables, tickets, settings };
+  const purchases = Array.isArray(s.purchases) ? s.purchases : [];
+  return { ...s, staff, tables, tickets, settings, purchases };
 }
 
 /** locked = the trial ended / plan lapsed, so the server won't accept saves */
