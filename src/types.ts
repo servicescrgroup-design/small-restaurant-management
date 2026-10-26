@@ -14,6 +14,8 @@ export interface Settings {
   menuCategories: string[];
   /** Which menu tab each category sits under (set in Menu → Edit tabs & categories) */
   categoryTabs?: Record<string, string>;
+  /** Delivery-app pricing (see delivery.ts) */
+  delivery?: DeliverySettings;
   inventoryCategories: string[];
   storageLocations: string[];
   paymentMethods: string[];
@@ -23,6 +25,17 @@ export interface Settings {
   nextOrderNumber: number;
   /** Lock the app after this many idle minutes (0 = never) */
   autoLockMinutes: number;
+}
+
+export interface DeliverySettings {
+  /** Delivery app's commission (GP), percent of the delivery price */
+  gpPct: number;
+  /** VAT charged on the GP, percent */
+  vatPct: number;
+  /** Default packaging cost per dish for delivery */
+  packaging: number;
+  /** Round recommended prices up to this (1, 5, 10); 0 = to the satang */
+  roundTo: number;
 }
 
 export interface PaymentFee {
@@ -121,6 +134,10 @@ export interface MenuItem {
   category: string;
   /** Base price; chosen options add to it */
   price: number;
+  /** Price on delivery apps (Grab, LINE MAN…), confirmed by the owner */
+  deliveryPrice?: number;
+  /** Packaging for delivery/takeaway; falls back to the shop default */
+  packagingCost?: number;
   description?: string;
   /** Small photo as a data URL (resized on upload) */
   image?: string;

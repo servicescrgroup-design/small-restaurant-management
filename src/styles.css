@@ -890,3 +890,57 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
 .tab-section.add-tab { border-style: dashed; background: none; gap: 6px; padding: 14px; }
 .tab-board.is-dragging { user-select: none; }
 .cat-move { flex-shrink: 0; width: 40px; padding: 5px 4px; text-align: center; text-align-last: center; cursor: pointer; color: var(--muted); appearance: none; -webkit-appearance: none; background: var(--glass-soft); }
+
+/* Delivery-app prices */
+.delivery-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.delivery-toggle .switch { width: 30px; height: 18px; border-radius: 999px; background: var(--hairline); position: relative; transition: background 0.2s; flex-shrink: 0; }
+.delivery-toggle .switch span { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.2s; }
+.delivery-toggle.on { border-color: var(--accent); color: var(--accent); }
+.delivery-toggle.on .switch { background: var(--accent); }
+.delivery-toggle.on .switch span { transform: translateX(12px); }
+.delivery-bar { margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; border-color: var(--accent); }
+.delivery-bar-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.delivery-bar-head p { margin: 4px 0 0; font-size: 13.5px; }
+.delivery-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; }
+.delivery-col input { width: 96px; text-align: right; }
+.delivery-col input.unset { border-color: var(--warn); background: var(--warn-soft); }
+.use-rec { margin-left: 6px; padding: 3px 8px; font-size: 11.5px; }
+.dish-card-delivery { font-size: 12.5px; font-weight: 650; opacity: 0.95; }
+.delivery-panel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--r); border: 1px solid var(--glass-border); background: var(--glass-soft); }
+.compare { display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; border: 1px solid var(--hairline); font-variant-numeric: tabular-nums; }
+.compare-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 1fr 1fr; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--hairline); }
+.compare-row:first-child { border-top: 0; }
+.compare-row span:not(:first-child) { text-align: right; }
+.compare-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--glass-strong); }
+.compare-total { font-weight: 800; background: var(--accent-soft); }
+.compare-total small { font-weight: 600; color: var(--muted); margin-left: 4px; }
+.compare-total .worse { color: var(--warn); }
+@media (max-width: 860px) {
+  .delivery-col input { width: 100%; }
+}
+
+/* The delivery table is wide: cards below 1280px too */
+@media (min-width: 861px) and (max-width: 1279px) {
+  .table.delivery-table tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .table.delivery-table tbody tr { margin-bottom: 0; }
+  .delivery-table .delivery-col input { width: 110px; }
+  /* Tables become stacked cards: one card per row, each value labelled with its column */
+  .table-wrap.delivery-wrap { overflow-x: visible; }
+  .table.delivery-table, .table.delivery-table tbody, .table.delivery-table tfoot, .table.delivery-table tr, .table.delivery-table td { display: block; width: 100%; }
+  .table.delivery-table thead { display: none; }
+  .table.delivery-table tbody tr, .table.delivery-table tfoot tr { border: 1px solid var(--glass-border); border-radius: 14px; padding: 6px 12px; margin-bottom: 10px; background: var(--glass-soft); }
+  .table.delivery-table tbody tr:nth-child(even) { background: var(--zebra); }
+  .table.delivery-table td, .table.delivery-table.compact td { display: flow-root; padding: 7px 0; border-bottom: 1px solid var(--hairline); text-align: right; min-width: 0 !important; width: auto !important; overflow-wrap: anywhere; }
+  .table.delivery-table tr td:last-child { border-bottom: 0; }
+  /* Label on the left, the cell's own content flows on the right (fields drop below their label) */
+  .table.delivery-table td[data-label]::before { content: attr(data-label); float: left; margin-right: 12px; max-width: 45%; text-align: left; font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.9; color: var(--muted); }
+  .table.delivery-table td[data-label=''], .table.delivery-table td:not([data-label]), .table.delivery-table td:first-child { text-align: left; }
+  .table.delivery-table td[data-label='']::before, .table.delivery-table td:first-child::before { content: none; }
+  .table.delivery-table td:empty { display: none; }
+  .table.delivery-table td input, .table.delivery-table td select, .table.delivery-table td .input-unit { margin-top: 2px; }
+  .table.delivery-table td .input-unit { justify-content: flex-end; }
+  .table.delivery-table .pill { white-space: normal; text-align: left; }
+  .table.delivery-table td.actions, .table.delivery-table td[data-label='']:last-child:not(:first-child) { white-space: normal; text-align: right; }
+  .delivery-table .cell-thumb > div { min-width: 0; }
+  .table.delivery-table .actions .btn { margin: 2px 0 2px 6px; }
+}

@@ -6,6 +6,7 @@ import { RecipeEditor } from '../components/Recipe';
 import { Plate, RecipeCard, paletteOf, type CardLine } from '../components/RecipeCard';
 import MenuScan from '../components/MenuScan';
 import MenuListsEditor from '../components/MenuListsEditor';
+import { appCut, deliveryOf, priceDish } from '../delivery';
 import type { MenuItem, MenuOption, OptionGroup } from '../types';
 import { dishName, otherDishName, pct, uid } from '../utils';
 import { useI18n } from '../i18n';
@@ -25,6 +26,8 @@ export function dishDefaults(state: Parameters<typeof recipeCost>[0], m: MenuIte
 const VIEW_KEY = 'mise-menu-view';
 type View = 'cards' | 'list';
 const savedView = (): View => { try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cards'; } catch { return 'cards'; } };
+const DELIVERY_KEY = 'mise-menu-delivery';
+const savedDelivery = () => { try { return localStorage.getItem(DELIVERY_KEY) === '1'; } catch { return false; } };
 
 export default function Menu() {
   const { state, update, money } = useStore();
@@ -33,6 +36,11 @@ export default function Menu() {
   const [viewing, setViewing] = useState<MenuItem | null>(null);
   const [scanning, setScanning] = useState(false);
   const [editingLists, setEditingLists] = useState(false);
+  // Show delivery-app prices (GP + VAT) next to in-store prices
+  const [showDelivery, setShowDeliveryState] = useState(savedDelivery);
+  const setShowDelivery = (v: boolean) => { setShowDeliveryState(v); try { localStorage.setItem(DELIVERY_KEY, v ? '1' : '0'); } catch { /* ignore */ } };
+  const dSet = deliveryOf(state.settings);
+  const setDeliveryPrice = (id: string, n: number) => update((d) => { const x = d.menu.find((y) => y.id === id); if (x) x.deliveryPrice = n > 0 ? n : undefined; });
   const [scanned, setScanned] = useState(0);
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } };
@@ -72,12 +80,17 @@ export default function Menu() {
           {cats.map((c) => <button key={c} className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>{c === 'All' ? t('common.all') : c}</button>)}
         </div>
         <button className="btn sm edit-lists-btn" onClick={() => setEditingLists(true)} title={t('menu.lists.title')}>✎ {t('menu.lists.button')}</button>
+        <button className={`btn sm delivery-toggle ${showDelivery ? 'on' : ''}`} aria-pressed={showDelivery} onClick={() => setShowDelivery(!showDelivery)}>
+          <span className="switch" aria-hidden><span /></span>🛵 {t('menu.delivery.toggle')}
+        </button>
         <span className="spacer" />
         <div className="seg view-toggle" role="group" aria-label={t('menu.view.label')}>
           <button className={view === 'cards' ? 'active' : ''} aria-pressed={view === 'cards'} onClick={() => setView('cards')}>▦ {t('menu.view.cards')}</button>
           <button className={view === 'list' ? 'active' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}>≡ {t('menu.view.list')}</button>
         </div>
       </div>
+
+      {showDelivery && <DeliveryBar list={list} />}
 
       {view === 'cards' && (list.length === 0 ? (
         <div className="card">
@@ -108,6 +121,14 @@ export default function Menu() {
                     <strong>{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</strong>
                     {recipe.length > 0 && <span className={`dish-card-fc ${foodCostTone(fc, target)}`}>{t('menu.card.foodCost', { pct: pct(fc) })}</span>}
                   </div>
+                  {showDelivery && (() => {
+                    const dp = priceDish(price, cost, m, dSet);
+                    return (
+                      <span className="dish-card-delivery">
+                        🛵 {m.deliveryPrice ? money(m.deliveryPrice) : t('menu.delivery.notSet')} · {t('menu.delivery.suggest', { price: money(dp.recommended) })}
+                      </span>
+                    );
+                  })()}
                   <div className="dish-card-actions">
                     <button className="dish-card-btn" onClick={() => setViewing(m)}>{t('menu.card.recipe')}</button>
                     <button className="dish-card-btn ghost" onClick={() => setEditing(structuredClone(m))}>{t('common.edit')}</button>
@@ -123,13 +144,22 @@ export default function Menu() {
         {list.length === 0 ? (
           <Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty>
         ) : (
-          <div className="table-wrap">
-            <table className="table">
+          <div className={`table-wrap ${showDelivery ? 'delivery-wrap' : ''}`}>
+            <table className={`table ${showDelivery ? 'delivery-table' : ''}`}>
               <thead>
-                <tr>
-                  <th>{t('menu.col.item')}</th><th>{t('menu.col.tab')}</th><th>{t('menu.col.category')}</th><th className="num">{t('menu.col.price')}</th><th className="num">{t('menu.col.plateCost')}</th>
-                  <th className="num">{t('menu.col.foodCost')}</th><th className="num">{t('menu.col.profit')}</th><th className="num">{t('menu.col.canMake')}</th><th>{t('menu.col.status')}</th><th />
-                </tr>
+                {showDelivery ? (
+                  <tr>
+                    <th>{t('menu.col.item')}</th><th className="num">{t('menu.col.price')}</th><th className="num">{t('menu.col.plateCost')}</th>
+                    <th className="num">{t('menu.delivery.col.inStoreProfit')}</th>
+                    <th className="num">{t('menu.delivery.col.recommended')}</th><th className="num delivery-col">{t('menu.delivery.col.price')}</th>
+                    <th className="num">{t('menu.delivery.col.received')}</th><th className="num">{t('menu.delivery.col.profit')}</th><th />
+                  </tr>
+                ) : (
+                  <tr>
+                    <th>{t('menu.col.item')}</th><th>{t('menu.col.tab')}</th><th>{t('menu.col.category')}</th><th className="num">{t('menu.col.price')}</th><th className="num">{t('menu.col.plateCost')}</th>
+                    <th className="num">{t('menu.col.foodCost')}</th><th className="num">{t('menu.col.profit')}</th><th className="num">{t('menu.col.canMake')}</th><th>{t('menu.col.status')}</th><th />
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {list.map((m) => {
@@ -150,6 +180,29 @@ export default function Menu() {
                           </div>
                         </div>
                       </td>
+                      {showDelivery ? (() => {
+                        const dp = priceDish(price, cost, m, dSet);
+                        const shown = dp.delivery ?? dp.atRecommended;
+                        return (
+                          <>
+                            <td className="num">{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</td>
+                            <td className="num">{money(cost)}</td>
+                            <td className="num">{money(dp.inStore.profit)}</td>
+                            <td className="num">
+                              {money(dp.recommended)}
+                              {m.deliveryPrice !== dp.recommended && (
+                                <button className="btn sm use-rec" onClick={(e) => { e.stopPropagation(); setDeliveryPrice(m.id, dp.recommended); }}>{t('menu.delivery.use')}</button>
+                              )}
+                            </td>
+                            <td className="num delivery-col" onClick={(e) => e.stopPropagation()}>
+                              <NumInput className={m.deliveryPrice ? '' : 'unset'} value={m.deliveryPrice ?? 0} placeholder={t('menu.delivery.enter')} onChange={(n) => setDeliveryPrice(m.id, n)} aria-label={t('menu.delivery.col.price')} />
+                            </td>
+                            <td className="num">{money(shown.received)}{!dp.delivery && <div className="sub">{t('menu.delivery.atRecommended')}</div>}</td>
+                            <td className="num"><Pill tone={shown.profit < dp.inStore.profit - 0.005 ? 'warn' : 'ok'}>{money(shown.profit)}</Pill></td>
+                            <td className="actions"><button className="btn sm">{t('common.edit')}</button></td>
+                          </>
+                        );
+                      })() : (<>
                       <td>{tabOf(m, tabs)}</td>
                       <td>{m.category}</td>
                       <td className="num">{groups ? t('menu.fromPrice', { price: money(price) }) : money(price)}</td>
@@ -159,6 +212,7 @@ export default function Menu() {
                       <td className="num">{avail === null ? <span className="muted">—</span> : avail === 0 ? <Pill tone="bad">{t('menu.soldOut')}</Pill> : avail}</td>
                       <td>{m.active ? <Pill tone="ok">{t('menu.onMenu')}</Pill> : <Pill>{t('menu.hidden')}</Pill>}</td>
                       <td className="actions"><button className="btn sm">{t('common.edit')}</button></td>
+                      </>)}
                     </tr>
                   );
                 })}
@@ -198,6 +252,48 @@ export default function Menu() {
         />
       )}
     </>
+  );
+}
+
+/** Delivery-app settings (GP, VAT, packaging, rounding) and filling in prices in one go. */
+function DeliveryBar({ list }: { list: MenuItem[] }) {
+  const { state, update, money } = useStore();
+  const { t } = useI18n();
+  const d = deliveryOf(state.settings);
+  const cut = appCut(d);
+  const set = (p: Partial<typeof d>) => update((x) => { x.settings.delivery = { ...deliveryOf(x.settings), ...p }; });
+  const missing = list.filter((m) => !m.deliveryPrice);
+  const fill = () => {
+    if (!confirm(t('menu.delivery.fillConfirm', { n: missing.length }))) return;
+    update((x) => {
+      for (const m of x.menu) {
+        if (m.deliveryPrice || !missing.some((y) => y.id === m.id)) continue;
+        const { cost, price } = dishDefaults(x, m);
+        m.deliveryPrice = priceDish(price, cost, m, deliveryOf(x.settings)).recommended;
+      }
+    });
+  };
+  return (
+    <div className="card delivery-bar">
+      <div className="delivery-bar-head">
+        <div>
+          <h3>🛵 {t('menu.delivery.title')}</h3>
+          <p className="muted">{t('menu.delivery.explain', { gp: d.gpPct, vat: d.vatPct, cut: (cut * 100).toFixed(1), keep: ((1 - cut) * 100).toFixed(1) })}</p>
+        </div>
+        {missing.length > 0 && <button className="btn primary sm" onClick={fill}>{t('menu.delivery.fill', { n: missing.length })}</button>}
+      </div>
+      <div className="delivery-fields">
+        <Field label={t('menu.delivery.gp')}><div className="input-unit"><NumInput value={d.gpPct} onChange={(n) => set({ gpPct: Math.min(95, Math.max(0, n)) })} /><span>%</span></div></Field>
+        <Field label={t('menu.delivery.vat')}><div className="input-unit"><NumInput value={d.vatPct} onChange={(n) => set({ vatPct: Math.max(0, n) })} /><span>%</span></div></Field>
+        <Field label={t('menu.delivery.packaging')} hint={t('menu.delivery.packagingHint')}><NumInput value={d.packaging} onChange={(n) => set({ packaging: Math.max(0, n) })} /></Field>
+        <Field label={t('menu.delivery.round')}>
+          <select value={d.roundTo} onChange={(e) => set({ roundTo: Number(e.target.value) })}>
+            {[0, 1, 5, 10].map((r) => <option key={r} value={r}>{r ? t('menu.delivery.roundTo', { n: money(r) }) : t('menu.delivery.noRound')}</option>)}
+          </select>
+        </Field>
+      </div>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>{t('menu.delivery.formula', { keep: ((1 - cut) * 100).toFixed(1) })}</p>
+    </div>
   );
 }
 
@@ -337,7 +433,61 @@ export function MenuItemModal({ item, onClose, onSave, onDelete }: { item: MenuI
           </div>
         )}
       </div>
+
+      <DeliveryPanel item={m} price={price} cost={cost} onChange={(p) => setM((x) => ({ ...x, ...p }))} />
     </Modal>
+  );
+}
+
+/** In the dish editor: packaging, the delivery-app price (recommended vs confirmed) and profit in-store vs delivery. */
+function DeliveryPanel({ item, price, cost, onChange }: { item: MenuItem; price: number; cost: number; onChange: (p: Partial<MenuItem>) => void }) {
+  const { state, money } = useStore();
+  const { t } = useI18n();
+  const d = deliveryOf(state.settings);
+  const dp = priceDish(price, cost, item, d);
+  const del = dp.delivery ?? dp.atRecommended;
+  const rows: [string, (c: typeof del) => string][] = [
+    [t('menu.delivery.row.price'), (c) => money(c.price)],
+    [t('menu.delivery.row.food'), (c) => `−${money(c.foodCost)}`],
+    [t('menu.delivery.row.packaging'), (c) => (c.packaging ? `−${money(c.packaging)}` : '—')],
+    [t('menu.delivery.row.app', { gp: d.gpPct, vat: d.vatPct }), (c) => (c.appFee ? `−${money(c.appFee)}` : '—')],
+  ];
+  return (
+    <div className="delivery-panel">
+      <h3>🛵 {t('menu.delivery.panelTitle')}</h3>
+      <div className="form-grid">
+        <Field label={t('menu.delivery.packagingDish')} hint={t('menu.delivery.packagingDishHint', { amount: money(d.packaging) })}>
+          <NumInput value={item.packagingCost ?? 0} placeholder={money(d.packaging)} onChange={(n) => onChange({ packagingCost: n > 0 ? n : undefined })} />
+        </Field>
+        <Field label={t('menu.delivery.col.price')} hint={t('menu.delivery.priceHint', { price: money(dp.recommended) })}>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <NumInput value={item.deliveryPrice ?? 0} placeholder={t('menu.delivery.enter')} onChange={(n) => onChange({ deliveryPrice: n > 0 ? n : undefined })} />
+            <button type="button" className="btn sm" disabled={item.deliveryPrice === dp.recommended} onClick={() => onChange({ deliveryPrice: dp.recommended })}>{t('menu.delivery.useRec', { price: money(dp.recommended) })}</button>
+          </div>
+        </Field>
+      </div>
+      <div className="compare" role="table" aria-label={t('menu.delivery.compare')}>
+        <div className="compare-row compare-head" role="row">
+          <span role="columnheader" />
+          <span role="columnheader">🍽️ {t('menu.delivery.inStore')}</span>
+          <span role="columnheader">🛵 {dp.delivery ? t('menu.delivery.delivery') : t('menu.delivery.deliveryRec')}</span>
+        </div>
+        {rows.map(([label, f]) => (
+          <div key={label} className="compare-row" role="row">
+            <span role="rowheader">{label}</span><span role="cell">{f(dp.inStore)}</span><span role="cell">{f(del)}</span>
+          </div>
+        ))}
+        <div className="compare-row compare-total" role="row">
+          <span role="rowheader">{t('menu.delivery.row.profit')}</span>
+          <span role="cell">{money(dp.inStore.profit)} <small>{pct(dp.inStore.margin)}</small></span>
+          <span role="cell" className={del.profit < dp.inStore.profit - 0.005 ? 'worse' : ''}>{money(del.profit)} <small>{pct(del.margin)}</small></span>
+        </div>
+      </div>
+      {dp.delivery && dp.delivery.profit < dp.inStore.profit - 0.005 && (
+        <div className="callout warn">{t('menu.delivery.lessProfit', { amount: money(dp.inStore.profit - dp.delivery.profit), price: money(dp.recommended) })}</div>
+      )}
+      {item.optionGroups?.length ? <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>{t('menu.delivery.optionsNote')}</p> : null}
+    </div>
   );
 }
 
