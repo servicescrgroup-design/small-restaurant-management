@@ -13,9 +13,12 @@ export interface Column<T> {
   fixed?: 'start' | 'end';
   className?: string;
   render: (row: T) => ReactNode;
+  /** Value to sort by when the header is clicked; null/undefined always go last */
+  sort?: (row: T) => string | number | null | undefined;
 }
 
-interface Layout { order: string[]; widths: Record<string, number>; hidden: string[]; compact: boolean }
+interface Sort { id: string; dir: 1 | -1 }
+interface Layout { order: string[]; widths: Record<string, number>; hidden: string[]; compact: boolean; sort?: Sort }
 
 const load = (key: string): Partial<Layout> => {
   try { return JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Layout>; } catch { return {}; }
@@ -62,7 +65,7 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
   const columns = [...selectCol, ...baseColumns];
   const [layout, setLayoutState] = useState<Layout>(() => {
     const saved = load(storageKey);
-    return { order: saved.order ?? [], widths: saved.widths ?? {}, hidden: saved.hidden ?? [], compact: saved.compact ?? true };
+    return { order: saved.order ?? [], widths: saved.widths ?? {}, hidden: saved.hidden ?? [], compact: saved.compact ?? true, sort: saved.sort };
   });
   const setLayout = (next: Layout) => {
     setLayoutState(next);
@@ -78,6 +81,21 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
     ...[...layout.order.map((id) => movable.find((c) => c.id === id)).filter((c): c is Column<T> => !!c), ...movable.filter((c) => !layout.order.includes(c.id))],
     ...columns.filter((c) => c.fixed === 'end'),
   ];
+  // Click a header: ascending, then descending, then back to the page's own order
+  const sortCol = layout.sort && columns.find((c) => c.id === layout.sort!.id && c.sort);
+  const sortedRows = sortCol ? rows.map((row, i) => ({ row, i, v: sortCol.sort!(row) })).sort((a, b) => {
+    const an = a.v === null || a.v === undefined || a.v === '';
+    const bn = b.v === null || b.v === undefined || b.v === '';
+    if (an || bn) return an === bn ? a.i - b.i : an ? 1 : -1;
+    const c = typeof a.v === 'number' && typeof b.v === 'number' ? a.v - b.v : String(a.v).localeCompare(String(b.v), undefined, { numeric: true, sensitivity: 'base' });
+    return c * layout.sort!.dir || a.i - b.i;
+  }).map((x) => x.row) : rows;
+  const toggleSort = (c: Column<T>) => {
+    if (!c.sort) return;
+    const cur = layoutRef.current.sort;
+    const sort: Sort | undefined = cur?.id !== c.id ? { id: c.id, dir: 1 } : cur.dir === 1 ? { id: c.id, dir: -1 } : undefined;
+    setLayout({ ...layoutRef.current, sort });
+  };
   const visible = ordered.filter((c) => c.fixed || !layout.hidden.includes(c.id));
   const widthOf = (c: Column<T>) => Math.max(c.min ?? 50, layout.widths[c.id] ?? c.width);
   const total = visible.reduce((a, c) => a + widthOf(c), 0);
@@ -115,10 +133,12 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
 
   // Move a column by dragging its header sideways
   const startMove = (e: React.PointerEvent, c: Column<T>) => {
-    if (c.fixed || e.button !== 0) return;
+    if (e.button !== 0) return;
+    const th = e.currentTarget;
     const startX = e.clientX;
     let dragging = false;
     const onMove = (ev: PointerEvent) => {
+      if (c.fixed) return;
       if (!dragging && Math.abs(ev.clientX - startX) < 6) return;
       dragging = true;
       setMoving(c.id);
@@ -133,7 +153,8 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
       next.splice(current.indexOf(target), 0, c.id);
       setLayout({ ...layoutRef.current, order: next });
     };
-    const stop = () => {
+    const stop = (ev: PointerEvent) => {
+      if (!dragging && (ev.target as HTMLElement | null)?.closest?.('th') === th) toggleSort(c);
       setMoving(null);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', stop);
@@ -158,6 +179,21 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
   return (
     <div className="column-table">
       <div className="column-table-tools">
+        {/* Phones show rows as cards with no header, so sorting is a menu here */}
+        {columns.some((c) => c.sort) && (
+          <select
+            className="sort-select"
+            value={layout.sort ? `${layout.sort.id}:${layout.sort.dir}` : ''}
+            onChange={(e) => { const [id, dir] = e.target.value.split(':'); setLayout({ ...layout, sort: id ? { id, dir: Number(dir) as 1 | -1 } : undefined }); }}
+            aria-label={t('common.columns.sortBy')}
+          >
+            <option value="">{t('common.columns.sortDefault')}</option>
+            {ordered.filter((c) => c.sort && c.label).flatMap((c) => [
+              <option key={`${c.id}:1`} value={`${c.id}:1`}>{c.label} ↑</option>,
+              <option key={`${c.id}:-1`} value={`${c.id}:-1`}>{c.label} ↓</option>,
+            ])}
+          </select>
+        )}
         {/* Phones show rows as cards with no header, so select-all lives here */}
         {selectable && rows.length > 0 && (
           <button className="btn sm select-all-btn" onClick={toggleAll}>{allOn ? t('common.columns.selectNone') : t('common.columns.selectAll')}</button>
@@ -192,11 +228,13 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
                 <th
                   key={c.id}
                   data-col={c.fixed ? undefined : c.id}
-                  className={`${c.num ? 'num' : ''} ${c.fixed ? '' : 'movable'} ${moving === c.id ? 'moving' : ''} ${c.className ?? ''}`}
+                  className={`${c.num ? 'num' : ''} ${c.fixed ? '' : 'movable'} ${c.sort ? 'sortable' : ''} ${moving === c.id ? 'moving' : ''} ${c.className ?? ''}`}
+                  aria-sort={layout.sort?.id === c.id ? (layout.sort.dir === 1 ? 'ascending' : 'descending') : c.sort ? 'none' : undefined}
                   onPointerDown={(e) => startMove(e, c)}
-                  tabIndex={c.fixed ? undefined : 0}
-                  title={c.fixed ? undefined : t('common.columns.dragHint')}
+                  tabIndex={c.fixed && !c.sort ? undefined : 0}
+                  title={c.fixed ? (c.sort ? t('common.columns.sortHint') : undefined) : t(c.sort ? 'common.columns.dragSortHint' : 'common.columns.dragHint')}
                   onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && c.sort) { e.preventDefault(); toggleSort(c); return; }
                     if (c.fixed || !e.altKey) return;
                     if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(c, -1); }
                     if (e.key === 'ArrowRight') { e.preventDefault(); nudge(c, 1); }
@@ -204,7 +242,7 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
                 >
                   {c.id === '__select'
                     ? <input type="checkbox" checked={allOn} ref={(el) => { if (el) el.indeterminate = someOn && !allOn; }} onChange={toggleAll} onPointerDown={(e) => e.stopPropagation()} aria-label={t('common.columns.selectAll')} />
-                    : <span className="th-label">{c.label}</span>}
+                    : <span className="th-label">{c.label}{layout.sort?.id === c.id && <span className="sort-arrow" aria-hidden>{layout.sort.dir === 1 ? '▲' : '▼'}</span>}</span>}
                   {c.label && (
                     <span
                       className="col-resize"
@@ -220,7 +258,7 @@ export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows,
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {sortedRows.map((row) => (
               <tr key={rowKey(row)} className={`${onRowClick ? 'clickable' : ''} ${selectable && selected!.has(rowKey(row)) ? 'selected' : ''}`} onClick={onRowClick ? () => onRowClick(row) : undefined}>
                 {visible.map((c) => <td key={c.id} className={`${c.num ? 'num' : ''} ${c.className ?? ''}`}>{c.render(row)}</td>)}
               </tr>

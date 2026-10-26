@@ -75,7 +75,7 @@ export default function Menu() {
   const priceText = (r: Row) => (r.groups ? t('menu.fromPrice', { price: money(r.price) }) : money(r.price));
   const editCol: Column<Row> = { id: 'edit', label: '', width: 70, min: 60, fixed: 'end', className: 'actions', render: () => <button className="btn sm">{t('common.edit')}</button> };
   const itemCol: Column<Row> = {
-    id: 'item', label: t('menu.col.item'), width: 240, min: 160, fixed: 'start',
+    id: 'item', label: t('menu.col.item'), width: 240, min: 160, fixed: 'start', sort: (r) => dishName(r.m, lang),
     render: (r) => (
       <div className="cell-thumb">
         <Thumb src={r.m.image} name={r.m.name} size="xs" />
@@ -90,23 +90,23 @@ export default function Menu() {
   };
   const menuColumns: Column<Row>[] = [
     itemCol,
-    { id: 'tab', label: t('menu.col.tab'), width: 90, render: (r) => <span title={tabOf(r.m, tabs)}>{tabOf(r.m, tabs)}</span> },
-    { id: 'category', label: t('menu.col.category'), width: 120, render: (r) => <span title={r.m.category}>{r.m.category}</span> },
-    { id: 'price', label: t('menu.col.price'), width: 115, num: true, render: priceText },
-    { id: 'cost', label: t('menu.col.plateCost'), width: 90, num: true, render: (r) => money(r.cost) },
-    { id: 'fc', label: t('menu.col.foodCost'), width: 105, num: true, render: (r) => <Pill tone={r.recipe.length ? foodCostTone(r.fc, target) : 'muted'}>{r.recipe.length ? pct(r.fc) : t('menu.noRecipe')}</Pill> },
-    { id: 'profit', label: t('menu.col.profit'), width: 95, num: true, render: (r) => money(r.price - r.cost) },
-    { id: 'avail', label: t('menu.col.canMake'), width: 80, num: true, render: (r) => (r.avail === null ? <span className="muted">—</span> : r.avail === 0 ? <Pill tone="bad">{t('menu.soldOut')}</Pill> : r.avail) },
-    { id: 'status', label: t('menu.col.status'), width: 95, render: (r) => (r.m.active ? <Pill tone="ok">{t('menu.onMenu')}</Pill> : <Pill>{t('menu.hidden')}</Pill>) },
+    { id: 'tab', label: t('menu.col.tab'), width: 90, sort: (r) => tabOf(r.m, tabs), render: (r) => <span title={tabOf(r.m, tabs)}>{tabOf(r.m, tabs)}</span> },
+    { id: 'category', label: t('menu.col.category'), width: 120, sort: (r) => r.m.category, render: (r) => <span title={r.m.category}>{r.m.category}</span> },
+    { id: 'price', label: t('menu.col.price'), width: 115, num: true, sort: (r) => r.price, render: priceText },
+    { id: 'cost', label: t('menu.col.plateCost'), width: 90, num: true, sort: (r) => r.cost, render: (r) => money(r.cost) },
+    { id: 'fc', label: t('menu.col.foodCost'), width: 105, num: true, sort: (r) => (r.recipe.length ? r.fc : null), render: (r) => <Pill tone={r.recipe.length ? foodCostTone(r.fc, target) : 'muted'}>{r.recipe.length ? pct(r.fc) : t('menu.noRecipe')}</Pill> },
+    { id: 'profit', label: t('menu.col.profit'), width: 95, num: true, sort: (r) => r.price - r.cost, render: (r) => money(r.price - r.cost) },
+    { id: 'avail', label: t('menu.col.canMake'), width: 80, num: true, sort: (r) => r.avail, render: (r) => (r.avail === null ? <span className="muted">—</span> : r.avail === 0 ? <Pill tone="bad">{t('menu.soldOut')}</Pill> : r.avail) },
+    { id: 'status', label: t('menu.col.status'), width: 95, sort: (r) => (r.m.active ? 0 : 1), render: (r) => (r.m.active ? <Pill tone="ok">{t('menu.onMenu')}</Pill> : <Pill>{t('menu.hidden')}</Pill>) },
     editCol,
   ];
   const deliveryColumns: Column<Row>[] = [
     itemCol,
-    { id: 'price', label: t('menu.col.price'), width: 105, num: true, render: priceText },
-    { id: 'cost', label: t('menu.col.plateCost'), width: 95, num: true, render: (r) => money(r.cost) },
-    { id: 'inStoreProfit', label: t('menu.delivery.col.inStoreProfit'), width: 115, num: true, render: (r) => money(r.dp.inStore.profit) },
+    { id: 'price', label: t('menu.col.price'), width: 105, num: true, sort: (r) => r.price, render: priceText },
+    { id: 'cost', label: t('menu.col.plateCost'), width: 95, num: true, sort: (r) => r.cost, render: (r) => money(r.cost) },
+    { id: 'inStoreProfit', label: t('menu.delivery.col.inStoreProfit'), width: 115, num: true, sort: (r) => r.dp.inStore.profit, render: (r) => money(r.dp.inStore.profit) },
     {
-      id: 'recommended', label: t('menu.delivery.col.recommended'), width: 140, num: true,
+      id: 'recommended', label: t('menu.delivery.col.recommended'), width: 140, num: true, sort: (r) => r.dp.recommended,
       render: (r) => (
         <>
           {money(r.dp.recommended)}
@@ -117,7 +117,7 @@ export default function Menu() {
       ),
     },
     {
-      id: 'deliveryPrice', label: t('menu.delivery.col.price'), width: 125, num: true, className: 'delivery-col',
+      id: 'deliveryPrice', label: t('menu.delivery.col.price'), width: 125, num: true, className: 'delivery-col', sort: (r) => r.m.deliveryPrice || null,
       render: (r) => (
         <span onClick={(e) => e.stopPropagation()}>
           <NumInput className={r.m.deliveryPrice ? '' : 'unset'} value={r.m.deliveryPrice ?? 0} placeholder={t('menu.delivery.enter')} onChange={(n) => setDeliveryPrice(r.m.id, n)} aria-label={t('menu.delivery.col.price')} />
@@ -125,11 +125,11 @@ export default function Menu() {
       ),
     },
     {
-      id: 'received', label: t('menu.delivery.col.received'), width: 110, num: true,
+      id: 'received', label: t('menu.delivery.col.received'), width: 110, num: true, sort: (r) => (r.dp.delivery ?? r.dp.atRecommended).received,
       render: (r) => { const shown = r.dp.delivery ?? r.dp.atRecommended; return <>{money(shown.received)}{!r.dp.delivery && <div className="sub">{t('menu.delivery.atRecommended')}</div>}</>; },
     },
     {
-      id: 'deliveryProfit', label: t('menu.delivery.col.profit'), width: 110, num: true,
+      id: 'deliveryProfit', label: t('menu.delivery.col.profit'), width: 110, num: true, sort: (r) => (r.dp.delivery ?? r.dp.atRecommended).profit,
       render: (r) => { const shown = r.dp.delivery ?? r.dp.atRecommended; return <Pill tone={shown.profit < r.dp.inStore.profit - 0.005 ? 'warn' : 'ok'}>{money(shown.profit)}</Pill>; },
     },
     editCol,
