@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Page } from '../App';
 import { useStore } from '../store';
 import { useAccount } from '../account';
 import { useI18n } from '../i18n';
-import { changePassword, cloudEnabled, deleteBusiness, renameBusiness } from '../cloud';
+import { changePassword, cloudEnabled, createInvite, deleteBusiness, inviteLink, listInvites, listMembers, removeMember, renameBusiness, revokeInvite, type BusinessInvite, type BusinessMember } from '../cloud';
 import { Field, Pill } from '../components/ui';
 import { PlanCard } from '../components/Billing';
 import { fmtDate, localDate } from '../utils';
@@ -124,6 +124,8 @@ function CloudAccount() {
         <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>{t('account.staffHint')}</p>
       </div>
 
+      <Owners />
+
       {isOwner && (
         <div className="card span-all danger-zone">
           <h2>{t('account.dangerTitle')}</h2>
@@ -135,6 +137,145 @@ function CloudAccount() {
           <span className="field-hint">{t('account.typeName')}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Who can open this business, and inviting another owner by email. */
+function Owners() {
+  const account = useAccount()!;
+  const { t } = useI18n();
+  const { business } = account;
+  const isOwner = business.role === 'owner';
+  const [members, setMembers] = useState<BusinessMember[] | null>(null);
+  const [invites, setInvites] = useState<BusinessInvite[]>([]);
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
+  const [fresh, setFresh] = useState<string | null>(null);
+  const [copied, setCopied] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setMembers(await listMembers(business.id));
+      if (isOwner) setInvites(await listInvites(business.id));
+    } catch (e) { setMsg({ tone: 'bad', text: String((e as Error).message) }); }
+  }, [business.id, isOwner]);
+  useEffect(() => { void load(); }, [load]);
+
+  const errText = (e: unknown) => {
+    const m = String((e as { message?: string })?.message ?? e);
+    if (/already a member/.test(m)) return t('account.owners.err.member');
+    if (/invalid email/.test(m)) return t('account.owners.err.email');
+    if (/too many/.test(m)) return t('account.owners.err.tooMany');
+    if (/at least one owner/.test(m)) return t('account.owners.err.lastOwner');
+    if (/function|schema cache|does not exist/.test(m)) return t('account.owners.err.notReady');
+    return m;
+  };
+
+  const invite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const em = email.trim().toLowerCase();
+    if (!em) return;
+    setBusy(true); setMsg(null);
+    try {
+      const code = await createInvite(business.id, em);
+      setFresh(code);
+      setEmail('');
+      await load();
+    } catch (err) { setMsg({ tone: 'bad', text: errText(err) }); }
+    setBusy(false);
+  };
+
+  const copy = async (code: string) => {
+    try { await navigator.clipboard.writeText(inviteLink(code)); setCopied(code); setTimeout(() => setCopied(''), 2000); } catch { /* ignore */ }
+  };
+  const share = async (inv: { code: string; email: string }) => {
+    const text = t('account.owners.shareText', { name: business.name, email: inv.email });
+    if (navigator.share) { try { await navigator.share({ title: 'Mise', text, url: inviteLink(inv.code) }); return; } catch { /* cancelled */ } }
+    void copy(inv.code);
+  };
+  const drop = async (m: BusinessMember) => {
+    if (!confirm(m.is_me ? t('account.owners.confirmLeave', { name: business.name }) : t('account.owners.confirmRemove', { email: m.email }))) return;
+    try {
+      await removeMember(business.id, m.user_id);
+      if (m.is_me) { account.switchBusiness(null); await account.refresh(); } else await load();
+    } catch (e) { setMsg({ tone: 'bad', text: errText(e) }); }
+  };
+  const ownerCount = members?.filter((m) => m.role === 'owner').length ?? 0;
+  const freshInvite = invites.find((i) => i.code === fresh);
+
+  return (
+    <div className="card span-all owners-card">
+      <div className="card-head">
+        <div>
+          <h2>👥 {t('account.owners.title')}</h2>
+          <p>{t('account.owners.intro')}</p>
+        </div>
+      </div>
+      <div className="owners-grid">
+        <div>
+          <ul className="member-list">
+            {members === null ? <li className="muted">{t('common.loading')}</li> : members.map((m) => (
+              <li key={m.user_id}>
+                <span className="avatar" aria-hidden>{m.email.charAt(0).toUpperCase()}</span>
+                <span className="member-main">
+                  <strong>{m.email}{m.is_me && <span className="muted"> · {t('account.owners.you')}</span>}</strong>
+                  <small className="muted">{t(`account.role.${m.role}`)} · {t('account.owners.since', { date: fmtDate(localDate(new Date(m.joined_at))) })}</small>
+                </span>
+                {(isOwner || m.is_me) && !(m.role === 'owner' && ownerCount <= 1) && (
+                  <button className="btn sm ghost" onClick={() => void drop(m)}>{m.is_me ? t('account.owners.leave') : t('account.owners.remove')}</button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {invites.length > 0 && (
+            <>
+              <span className="field-label" style={{ display: 'block', margin: '14px 0 6px' }}>{t('account.owners.pending')}</span>
+              <ul className="member-list">
+                {invites.map((i) => (
+                  <li key={i.code} className="pending">
+                    <span className="avatar ghost" aria-hidden>✉</span>
+                    <span className="member-main">
+                      <strong>{i.email}</strong>
+                      <small className="muted">{t('account.owners.expires', { date: fmtDate(localDate(new Date(i.expires_at))) })}</small>
+                    </span>
+                    <button className="btn sm" onClick={() => void copy(i.code)}>{copied === i.code ? `✓ ${t('account.owners.copied')}` : t('account.owners.copyLink')}</button>
+                    <button className="btn sm ghost" onClick={() => void revokeInvite(i.code).then(load)}>{t('account.owners.cancel')}</button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+
+        {isOwner && (
+          <form className="invite-box" onSubmit={invite}>
+            <h3>{t('account.owners.inviteTitle')}</h3>
+            <p className="muted">{t('account.owners.inviteIntro')}</p>
+            <div className="row" style={{ flexWrap: 'nowrap' }}>
+              <input type="email" required placeholder={t('account.owners.emailPh')} value={email} onChange={(e) => { setEmail(e.target.value); setMsg(null); }} aria-label={t('account.email')} />
+              <button className="btn primary" disabled={busy || !email.trim()}>{t('account.owners.invite')}</button>
+            </div>
+            {msg && <div className={`callout ${msg.tone}`}>{msg.text}</div>}
+            {freshInvite && (
+              <div className="invite-ready">
+                <strong>{t('account.owners.ready', { email: freshInvite.email })}</strong>
+                <code className="invite-link">{inviteLink(freshInvite.code)}</code>
+                <div className="row">
+                  <button type="button" className="btn sm primary" onClick={() => void share(freshInvite)}>{t('account.owners.share')}</button>
+                  <button type="button" className="btn sm" onClick={() => void copy(freshInvite.code)}>{copied === freshInvite.code ? `✓ ${t('account.owners.copied')}` : t('account.owners.copyLink')}</button>
+                </div>
+                <ol className="invite-steps">
+                  <li>{t('account.owners.step1')}</li>
+                  <li>{t('account.owners.step2', { email: freshInvite.email })}</li>
+                  <li>{t('account.owners.step3')}</li>
+                </ol>
+              </div>
+            )}
+          </form>
+        )}
+      </div>
     </div>
   );
 }

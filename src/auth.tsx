@@ -155,7 +155,8 @@ export function LockScreen() {
   );
 }
 
-export function CreateOwner() {
+/** The first owner of a shop, or (joined) a co-owner who just accepted an invite, picks a name and PIN. */
+export function CreateOwner({ joined, onDone, onSkip }: { joined?: string; onDone?: () => void; onSkip?: () => void } = {}) {
   const { state, update } = useStore();
   const { signInAs } = useAuth();
   const { t } = useI18n();
@@ -163,7 +164,9 @@ export function CreateOwner() {
   const [pin, setPin] = useState('');
   const [pin2, setPin2] = useState('');
   const err = pin && !isValidPin(pin) ? t('common.auth.pinLength') : pin2 && pin !== pin2 ? t('common.auth.pinMismatch') : '';
-  const ok = name.trim() && isValidPin(pin) && pin === pin2;
+  // Each person's PIN has to be unique, since the PIN is what picks who's signing in
+  const pinTaken = isValidPin(pin) && !!findByPin(state.staff, pin);
+  const ok = name.trim() && isValidPin(pin) && pin === pin2 && !pinTaken;
   return (
     <div className="lock-screen">
       <div className="lock-prefs"><ThemeSwitch /><LangSwitch /></div>
@@ -173,20 +176,25 @@ export function CreateOwner() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!ok) return;
+          if (findByPin(state.staff, pin)) return;
           const owner = newStaff(name.trim(), 'owner', pin);
           update((d) => { d.staff.push(owner); });
+          onDone?.();
           signInAs(owner.id);
         }}
       >
         <span className="brand-mark">M</span>
-        <h1>{t('common.auth.createOwnerTitle')}</h1>
-        <p className="muted">{t('common.auth.createOwnerIntro')}</p>
+        <h1>{joined ? t('common.auth.joinedTitle', { name: joined }) : t('common.auth.createOwnerTitle')}</h1>
+        <p className="muted">{joined ? t('common.auth.joinedIntro') : t('common.auth.createOwnerIntro')}</p>
         <label className="field"><span className="field-label">{t('common.auth.yourName')}</span><input autoFocus value={name} onChange={(e) => setName(e.target.value)} /></label>
         <label className="field"><span className="field-label">{t('common.auth.ownerPin')}</span><input type="password" inputMode="numeric" autoComplete="new-password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} /></label>
         <label className="field"><span className="field-label">{t('common.auth.confirmPin')}</span><input type="password" inputMode="numeric" autoComplete="new-password" value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, '').slice(0, 6))} /></label>
         {err && <div className="callout bad">{err}</div>}
         <button className="btn primary lg" type="submit" disabled={!ok}>{t('common.auth.createOwnerBtn')}</button>
-        {state.staff.length > 0 && <p className="muted" style={{ fontSize: 13 }}>{t('common.auth.noOwnerFound')}</p>}
+        {pinTaken && <div className="callout bad">{t('common.auth.pinTaken')}</div>}
+        {joined
+          ? <button type="button" className="btn ghost" onClick={onSkip}>{t('common.auth.havePin')}</button>
+          : state.staff.length > 0 && <p className="muted" style={{ fontSize: 13 }}>{t('common.auth.noOwnerFound')}</p>}
       </form>
     </div>
   );

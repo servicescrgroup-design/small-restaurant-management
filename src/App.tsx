@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './store';
 import { canAccess, CreateOwner, LockScreen, useAuth } from './auth';
+import { clearJustJoined, justJoined } from './account';
 import { LangSwitch, useI18n } from './i18n';
 import { ThemeSwitch } from './theme';
 import Dashboard from './pages/Dashboard';
@@ -39,7 +40,12 @@ const fromHash = (): Page => {
 export default function App() {
   const { state } = useStore();
   const { user } = useAuth();
+  const account = useAccount();
+  const [, rerender] = useState(0);
+  const doneJoining = () => { clearJustJoined(); rerender((n) => n + 1); };
   if (!state.staff.some((s) => s.active && s.role === 'owner')) return <CreateOwner />;
+  // Someone who just joined as a co-owner sets up their own name and PIN for this shop
+  if (!user && account && justJoined() === account.business.id) return <CreateOwner joined={account.business.name} onSkip={doneJoining} onDone={doneJoining} />;
   if (!user) return <LockScreen />;
   return <Shell />;
 }

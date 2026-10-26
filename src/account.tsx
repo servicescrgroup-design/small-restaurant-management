@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
-  cloudEnabled, createBusiness, getSession, listBusinesses, loadSubscription, onAuthChange, sendPasswordReset, signIn, signOut, signUp,
+  acceptInvite, cloudEnabled, createBusiness, getSession, listBusinesses, loadSubscription, onAuthChange, sendPasswordReset, signIn, signOut, signUp,
   watchSubscription, type BusinessSummary,
 } from './cloud';
 import { accessOf, fmtPlanPrice, planCurrency, planPrices, TRIAL_DAYS, type Subscription } from './plans';
@@ -37,6 +37,22 @@ const BIZ_KEY = 'mise-business';
 const rememberBiz = (id: string | null) => { try { if (id) localStorage.setItem(BIZ_KEY, id); else localStorage.removeItem(BIZ_KEY); } catch { /* ignore */ } };
 const rememberedBiz = () => { try { return localStorage.getItem(BIZ_KEY); } catch { return null; } };
 
+// An invite link (…/#join=CODE) is kept until the person has signed in, then used once
+const JOIN_KEY = 'mise-join';
+const JOINED_KEY = 'mise-joined';
+const takeJoinFromHash = () => {
+  const m = window.location.hash.match(/join=([a-f0-9]{16,64})/i);
+  if (!m) return false;
+  try { localStorage.setItem(JOIN_KEY, m[1].toLowerCase()); } catch { /* ignore */ }
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  return true;
+};
+export const pendingJoin = () => { try { return localStorage.getItem(JOIN_KEY); } catch { return null; } };
+const clearJoin = () => { try { localStorage.removeItem(JOIN_KEY); } catch { /* ignore */ } };
+/** The business this login just joined as an owner, until they've set up their own PIN there */
+export const justJoined = () => { try { return localStorage.getItem(JOINED_KEY); } catch { return null; } };
+export const clearJustJoined = () => { try { localStorage.removeItem(JOINED_KEY); } catch { /* ignore */ } };
+
 export function AccountGate({ children }: { children: ReactNode }) {
   if (!cloudEnabled) return <StoreProvider backend={localBackend}>{children}</StoreProvider>;
   return <CloudGate>{children}</CloudGate>;
@@ -48,6 +64,16 @@ function CloudGate({ children }: { children: ReactNode }) {
   const [businesses, setBusinesses] = useState<BusinessSummary[] | null>(null);
   const [bizId, setBizId] = useState<string | null>(rememberedBiz);
   const [error, setError] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const [joinTick, setJoinTick] = useState(0);
+
+  useEffect(() => {
+    takeJoinFromHash();
+    // Opening an invite link while already signed in joins right away
+    const onHash = () => { if (takeJoinFromHash()) setJoinTick((n) => n + 1); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession(null));
@@ -56,10 +82,25 @@ function CloudGate({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    // Use a waiting invite first, so the new owner lands straight in that business
+    const code = pendingJoin();
+    if (code) {
+      try {
+        const joined = await acceptInvite(code);
+        rememberBiz(joined.business_id);
+        setBizId(joined.business_id);
+        try { localStorage.setItem(JOINED_KEY, joined.business_id); } catch { /* ignore */ }
+        setJoinError('');
+      } catch (e) {
+        const m = String((e as { message?: string })?.message ?? e);
+        setJoinError(/different email/.test(m) ? t('account.join.wrongEmail') : /expired/.test(m) ? t('account.join.expired') : /used|not found/.test(m) ? t('account.join.used') : m);
+      }
+      clearJoin();
+    }
     try { setBusinesses(await listBusinesses()); setError(''); } catch { setError(t('account.loadError')); }
   }, [t]);
 
-  useEffect(() => { if (session) void refresh(); else setBusinesses(null); }, [session, refresh]);
+  useEffect(() => { if (session) void refresh(); else setBusinesses(null); }, [session, refresh, joinTick]);
 
   // null = go to the business picker ('' keeps the picker open even when there's only one business)
   const switchBusiness = useCallback((id: string | null) => { rememberBiz(id); setBizId(id ?? ''); }, []);
@@ -83,6 +124,7 @@ function CloudGate({ children }: { children: ReactNode }) {
 
   if (session === undefined) return <div className="loading">{t('common.loading')}</div>;
   if (!session) return <AuthScreen />;
+  if (joinError) return <Screen><h1>{t('account.join.failTitle')}</h1><div className="callout bad">{joinError}</div><p className="muted" style={{ fontSize: 13 }}>{t('account.join.signedInAs', { email: session.user.email ?? '' })}</p><div className="row"><button className="btn primary" onClick={() => setJoinError('')}>{t('common.continue')}</button><button className="btn" onClick={() => void doSignOut()}>{t('account.signOut')}</button></div></Screen>;
   if (error) return <Screen><div className="callout bad">{error}</div><button className="btn" onClick={() => void refresh()}>{t('common.retry')}</button></Screen>;
   if (!businesses) return <div className="loading">{t('common.loading')}</div>;
   if (!businesses.length) return <CreateBusiness email={session.user.email ?? ''} onCreated={async (id) => { await refresh(); switchBusiness(id); }} onSignOut={doSignOut} />;
@@ -170,6 +212,7 @@ function SignInPage({ go, reset }: { go: (p: AuthPage) => void; reset: boolean }
 
   return (
     <Screen>
+      {pendingJoin() && <div className="callout info">{t('account.join.notice')}</div>}
       <h1>{reset ? t('account.resetTitle') : t('account.signInTitle')}</h1>
       <p className="muted">{reset ? t('account.resetIntro') : t('account.signInIntro')}</p>
       <form onSubmit={submit} className="account-form">
@@ -251,6 +294,7 @@ function SignUpPage({ go }: { go: (p: AuthPage) => void }) {
         </section>
 
         <section className="lock-card account-card" style={{ textAlign: 'left' }}>
+          {pendingJoin() && <div className="callout info">{t('account.join.notice')}</div>}
           <h1>{t('account.signUpTitle')}</h1>
           <p className="muted">{t('account.signUpIntro')}</p>
           <form onSubmit={submit} className="account-form">

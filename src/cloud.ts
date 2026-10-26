@@ -81,6 +81,54 @@ export async function deleteBusiness(id: string, confirmName: string) {
   if (error) throw error;
 }
 
+// ---------- Co-owners ----------
+
+export interface BusinessMember { user_id: string; email: string; role: 'owner' | 'manager'; joined_at: string; is_me: boolean }
+export interface BusinessInvite { code: string; email: string; created_at: string; expires_at: string }
+
+/** Link that lets the invited person join; the code also works pasted on the sign-in screen. */
+export const inviteLink = (code: string) => `${window.location.origin}/#join=${code}`;
+
+export async function listMembers(id: string): Promise<BusinessMember[]> {
+  const { data, error } = await sb().rpc('list_business_members', { p_business: id });
+  if (error) throw error;
+  return (data ?? []) as BusinessMember[];
+}
+
+export async function listInvites(id: string): Promise<BusinessInvite[]> {
+  const { data, error } = await sb()
+    .from('business_invites')
+    .select('code, email, created_at, expires_at')
+    .eq('business_id', id)
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as BusinessInvite[];
+}
+
+export async function createInvite(id: string, email: string): Promise<string> {
+  const { data, error } = await sb().rpc('create_business_invite', { p_business: id, p_email: email });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function revokeInvite(code: string) {
+  const { error } = await sb().rpc('revoke_business_invite', { p_code: code });
+  if (error) throw error;
+}
+
+export async function acceptInvite(code: string): Promise<{ business_id: string; name: string }> {
+  const { data, error } = await sb().rpc('accept_business_invite', { p_code: code });
+  if (error) throw error;
+  return (Array.isArray(data) ? data[0] : data) as { business_id: string; name: string };
+}
+
+export async function removeMember(id: string, userId: string) {
+  const { error } = await sb().rpc('remove_business_member', { p_business: id, p_user: userId });
+  if (error) throw error;
+}
+
 // ---------- Business data ----------
 
 export async function loadBusinessData(id: string): Promise<{ state: AppState; rev: string; updatedAt: string }> {
