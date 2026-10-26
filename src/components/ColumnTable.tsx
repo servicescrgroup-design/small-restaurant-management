@@ -26,15 +26,40 @@ const load = (key: string): Partial<Layout> => {
  * (double-click to reset), hide columns, and choose compact or comfortable rows. The arrangement is
  * remembered on this device under `storageKey`. On phones it shows as cards like every other table.
  */
-export default function ColumnTable<T>({ storageKey, columns, rows, rowKey, onRowClick, className = '' }: {
+export default function ColumnTable<T>({ storageKey, columns: baseColumns, rows, rowKey, onRowClick, className = '', selected, onSelectedChange }: {
   storageKey: string;
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
   onRowClick?: (row: T) => void;
   className?: string;
+  /** Row checkboxes for bulk actions (ids from rowKey) */
+  selected?: Set<string>;
+  onSelectedChange?: (s: Set<string>) => void;
 }) {
   const { t } = useI18n();
+  const selectable = !!selected && !!onSelectedChange;
+  const allOn = selectable && rows.length > 0 && rows.every((r) => selected!.has(rowKey(r)));
+  const someOn = selectable && rows.some((r) => selected!.has(rowKey(r)));
+  const toggleAll = () => {
+    const next = new Set(selected);
+    for (const r of rows) { if (allOn) next.delete(rowKey(r)); else next.add(rowKey(r)); }
+    onSelectedChange!(next);
+  };
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    onSelectedChange!(next);
+  };
+  const selectCol: Column<T>[] = selectable ? [{
+    id: '__select', label: '', width: 40, min: 40, fixed: 'start', className: 'select-col',
+    render: (row) => (
+      <span className="select-cell" onClick={(e) => e.stopPropagation()}>
+        <input type="checkbox" checked={selected!.has(rowKey(row))} onChange={() => toggleOne(rowKey(row))} aria-label={t('common.columns.selectRow')} />
+      </span>
+    ),
+  }] : [];
+  const columns = [...selectCol, ...baseColumns];
   const [layout, setLayoutState] = useState<Layout>(() => {
     const saved = load(storageKey);
     return { order: saved.order ?? [], widths: saved.widths ?? {}, hidden: saved.hidden ?? [], compact: saved.compact ?? true };
@@ -133,6 +158,10 @@ export default function ColumnTable<T>({ storageKey, columns, rows, rowKey, onRo
   return (
     <div className="column-table">
       <div className="column-table-tools">
+        {/* Phones show rows as cards with no header, so select-all lives here */}
+        {selectable && rows.length > 0 && (
+          <button className="btn sm select-all-btn" onClick={toggleAll}>{allOn ? t('common.columns.selectNone') : t('common.columns.selectAll')}</button>
+        )}
         <div className="col-menu" ref={menuRef}>
           <button className="btn sm" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⚙ {t('common.columns.button')}</button>
           {menuOpen && (
@@ -173,7 +202,9 @@ export default function ColumnTable<T>({ storageKey, columns, rows, rowKey, onRo
                     if (e.key === 'ArrowRight') { e.preventDefault(); nudge(c, 1); }
                   }}
                 >
-                  <span className="th-label">{c.label}</span>
+                  {c.id === '__select'
+                    ? <input type="checkbox" checked={allOn} ref={(el) => { if (el) el.indeterminate = someOn && !allOn; }} onChange={toggleAll} onPointerDown={(e) => e.stopPropagation()} aria-label={t('common.columns.selectAll')} />
+                    : <span className="th-label">{c.label}</span>}
                   {c.label && (
                     <span
                       className="col-resize"
@@ -190,7 +221,7 @@ export default function ColumnTable<T>({ storageKey, columns, rows, rowKey, onRo
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={rowKey(row)} className={onRowClick ? 'clickable' : ''} onClick={onRowClick ? () => onRowClick(row) : undefined}>
+              <tr key={rowKey(row)} className={`${onRowClick ? 'clickable' : ''} ${selectable && selected!.has(rowKey(row)) ? 'selected' : ''}`} onClick={onRowClick ? () => onRowClick(row) : undefined}>
                 {visible.map((c) => <td key={c.id} className={`${c.num ? 'num' : ''} ${c.className ?? ''}`}>{c.render(row)}</td>)}
               </tr>
             ))}

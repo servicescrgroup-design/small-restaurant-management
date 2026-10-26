@@ -999,3 +999,29 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
 .sales-summary > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--glass-soft); border: 1px solid var(--glass-border); }
 .sales-summary span { font-size: 12px; color: var(--muted); }
 .sales-summary strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+/* Bulk edit */
+.select-cell { display: inline-flex; align-items: center; }
+.select-cell input, th input[type='checkbox'] { width: 17px; height: 17px; cursor: pointer; }
+.table tbody tr.selected { background: var(--accent-soft) !important; }
+.bulk-bar { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--accent); background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg); box-shadow: var(--shadow); animation: tour-in 0.2s ease-out; }
+.bulk-bar select { width: auto; padding: 6px 10px; }
+.btn.sm.danger { color: var(--bad); }
+@media (max-width: 860px) {
+  .bulk-bar { top: calc(64px + env(safe-area-inset-top)); }
+  .table.custom-cols tbody tr { position: relative; }
+  .table.custom-cols td.select-col { position: absolute; top: 10px; right: 12px; width: auto !important; padding: 0; border: 0; }
+  .table.custom-cols td.select-col::before { content: none; }
+  .table.custom-cols td.select-col + td { text-align: left; padding-right: 32px; }
+  .table.custom-cols td.select-col + td::before { content: none; }
+}
+@media (min-width: 861px) and (max-width: 1279px) {
+  .table.custom-cols.delivery-table tbody tr { position: relative; }
+  .table.custom-cols.delivery-table td.select-col { position: absolute; top: 10px; right: 12px; width: auto !important; padding: 0; border: 0; }
+  .table.custom-cols.delivery-table td.select-col::before { content: none; }
+  .table.custom-cols.delivery-table td.select-col + td { text-align: left; padding-right: 32px; }
+  .table.custom-cols.delivery-table td.select-col + td::before { content: none; }
+}
+.column-table-tools { gap: 8px; }
+.select-all-btn { display: none; }
+@media (max-width: 860px) { .select-all-btn { display: inline-flex; } }

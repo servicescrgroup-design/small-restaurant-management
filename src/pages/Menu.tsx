@@ -36,6 +36,9 @@ export default function Menu() {
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [viewing, setViewing] = useState<MenuItem | null>(null);
   const [scanning, setScanning] = useState(false);
+  // Bulk edit: dishes ticked in the list
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulkCat, setBulkCat] = useState('');
   const [editingLists, setEditingLists] = useState(false);
   // Show delivery-app prices (GP + VAT) next to in-store prices
   const [showDelivery, setShowDeliveryState] = useState(savedDelivery);
@@ -219,8 +222,16 @@ export default function Menu() {
       {view === 'list' && <div className="card">
         {list.length === 0 ? (
           <Empty title={t('menu.emptyTitle')}>{t('menu.emptyBody')}</Empty>
-        ) : (
+        ) : (<>
+          <BulkBar
+            ids={list.filter((m) => picked.has(m.id)).map((m) => m.id)}
+            category={bulkCat}
+            onCategory={setBulkCat}
+            onClear={() => setPicked(new Set())}
+          />
           <ColumnTable
+            selected={picked}
+            onSelectedChange={setPicked}
             key={showDelivery ? 'delivery' : 'menu'}
             storageKey={showDelivery ? 'mise-menu-cols-delivery' : 'mise-menu-cols'}
             className={showDelivery ? 'delivery-table' : ''}
@@ -229,7 +240,7 @@ export default function Menu() {
             rowKey={(r) => r.m.id}
             onRowClick={(r) => setEditing(structuredClone(r.m))}
           />
-        )}
+        </>)}
       </div>}
 
       {editingLists && <MenuListsEditor onClose={() => setEditingLists(false)} onSaved={() => { setTab('All'); setCat('All'); }} />}
@@ -262,6 +273,48 @@ export default function Menu() {
         />
       )}
     </>
+  );
+}
+
+/** Actions for the dishes ticked in the list: show, hide, move to a category, delete. */
+function BulkBar({ ids, category, onCategory, onClear }: { ids: string[]; category: string; onCategory: (c: string) => void; onClear: () => void }) {
+  const { state, update } = useStore();
+  const { t } = useI18n();
+  if (!ids.length) return null;
+  const set = new Set(ids);
+  const each = (fn: (m: MenuItem) => void) => update((d) => { for (const m of d.menu) if (set.has(m.id)) fn(m); });
+  const home = state.settings.categoryTabs ?? {};
+  const remove = () => {
+    if (!confirm(t(ids.length === 1 ? 'menu.bulk.confirmDeleteOne' : 'menu.bulk.confirmDelete', { n: ids.length }))) return;
+    update((d) => {
+      d.menu = d.menu.filter((m) => !set.has(m.id));
+      // Take them off any open orders too; past sales stay in history
+      d.tickets = d.tickets.map((tk) => ({ ...tk, lines: tk.lines.filter((l) => !set.has(l.menuItemId)) }));
+    });
+    onClear();
+  };
+  return (
+    <div className="bulk-bar" role="toolbar" aria-label={t('menu.bulk.label')}>
+      <strong>{t(ids.length === 1 ? 'menu.bulk.selectedOne' : 'menu.bulk.selected', { n: ids.length })}</strong>
+      <button className="btn sm" onClick={() => each((m) => { m.active = true; })}>{t('menu.bulk.show')}</button>
+      <button className="btn sm" onClick={() => each((m) => { m.active = false; })}>{t('menu.bulk.hide')}</button>
+      <select
+        value={category}
+        onChange={(e) => {
+          const c = e.target.value;
+          onCategory('');
+          if (!c) return;
+          each((m) => { m.category = c; if (home[c]) m.tab = home[c]; });
+        }}
+        aria-label={t('menu.bulk.move')}
+      >
+        <option value="">{t('menu.bulk.move')}…</option>
+        {state.settings.menuCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <button className="btn sm danger" onClick={remove}>🗑 {t('menu.bulk.delete')}</button>
+      <span className="spacer" />
+      <button className="btn sm ghost" onClick={onClear}>{t('menu.bulk.clear')}</button>
+    </div>
   );
 }
 

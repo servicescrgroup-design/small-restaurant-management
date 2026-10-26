@@ -149,6 +149,9 @@ export default defineMessages(
     'columns.reset': 'Reset layout',
     'columns.dragHint': 'Drag to move this column (or Alt + ← →)',
     'columns.resize': 'Resize the {name} column',
+    'columns.selectRow': 'Select this row',
+    'columns.selectAll': 'Select all shown',
+    'columns.selectNone': 'Select none',
   },
   {
     loadFailed: 'โหลดข้อมูลไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต',
@@ -290,5 +293,8 @@ export default defineMessages(
     'columns.reset': 'คืนค่าเริ่มต้น',
     'columns.dragHint': 'ลากเพื่อย้ายคอลัมน์ (หรือ Alt + ← →)',
     'columns.resize': 'ปรับขนาดคอลัมน์ {name}',
+    'columns.selectRow': 'เลือกแถวนี้',
+    'columns.selectAll': 'เลือกทั้งหมดที่แสดง',
+    'columns.selectNone': 'ไม่เลือกเลย',
   },
 );
