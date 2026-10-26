@@ -866,3 +866,27 @@ html.js-reveal .reveal.in { opacity: 1; transform: none; transition: opacity 0.5
 .sort-count { flex-shrink: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .sort-was { flex-shrink: 0; max-width: 34%; font-size: 11.5px; color: var(--info); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 640px) { .sort-was { display: none; } }
+
+/* Edit menu: tabs as columns holding their categories */
+/* Newspaper columns, so short tabs sit beside a long one instead of far below it */
+.tab-board { columns: 290px; column-gap: 14px; }
+.tab-board > .tab-section { break-inside: avoid; margin-bottom: 14px; }
+.tab-section { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px; border-radius: 18px; border: 1px solid var(--glass-border); background: var(--glass-soft); transition: border-color 0.15s, background 0.15s, box-shadow 0.15s; }
+.tab-section.drop { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tab-section.dragging { box-shadow: var(--shadow-lg); border-color: var(--accent); }
+.tab-section-head { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 13px; color: #fff; background: linear-gradient(135deg, var(--accent-2), var(--accent)); box-shadow: 0 8px 18px -12px var(--accent); }
+.tab-section-head input { flex: 1; min-width: 0; padding: 6px 10px; font-weight: 750; color: #fff; background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.35); }
+.tab-section-head input:focus { background: rgba(255, 255, 255, 0.26); }
+.tab-section-head .icon-btn { color: #fff; }
+.tab-section-head .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.tab-section-count { flex-shrink: 0; font-size: 11.5px; font-weight: 650; opacity: 0.9; white-space: nowrap; }
+.sort-handle.light { color: rgba(255, 255, 255, 0.85); }
+.sort-handle.light:hover, .sort-handle.light:focus-visible { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.tab-was { padding: 0 8px; max-width: none; }
+.cat-list { min-height: 46px; }
+.cat-drop-hint { padding: 12px; border: 2px dashed var(--hairline); border-radius: 12px; text-align: center; font-size: 13px; color: var(--muted); }
+.tab-board.is-dragging .cat-drop-hint { border-color: var(--accent); color: var(--accent); }
+.cat-add input { padding: 6px 10px; font-size: 14px; }
+.tab-section.add-tab { border-style: dashed; background: none; gap: 6px; padding: 14px; }
+.tab-board.is-dragging { user-select: none; }
+.cat-move { flex-shrink: 0; width: 40px; padding: 5px 4px; text-align: center; text-align-last: center; cursor: pointer; color: var(--muted); appearance: none; -webkit-appearance: none; background: var(--glass-soft); }

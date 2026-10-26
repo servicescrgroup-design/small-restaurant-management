@@ -274,7 +274,11 @@ export function MenuItemModal({ item, onClose, onSave, onDelete }: { item: MenuI
   const tab = tabOf(m, tabs);
   // Categories already used in this tab first, then the rest
   const allCats = state.settings.menuCategories.includes(m.category) ? state.settings.menuCategories : [...state.settings.menuCategories, m.category];
-  const usedHere = new Set(state.menu.filter((x) => x.id !== m.id && tabOf(x, tabs) === tab).map((x) => x.category));
+  const homeTab = state.settings.categoryTabs ?? {};
+  const usedHere = new Set([
+    ...state.menu.filter((x) => x.id !== m.id && tabOf(x, tabs) === tab).map((x) => x.category),
+    ...Object.keys(homeTab).filter((c) => homeTab[c] === tab),
+  ]);
   const cats = [...allCats.filter((c) => usedHere.has(c)), ...allCats.filter((c) => !usedHere.has(c))];
 
   return (
@@ -299,7 +303,14 @@ export function MenuItemModal({ item, onClose, onSave, onDelete }: { item: MenuI
           </Field>
         )}
         <Field label={t('menu.category')}>
-          <select value={m.category} onChange={(e) => set('category', e.target.value)}>{cats.map((c) => <option key={c}>{c}</option>)}</select>
+          <select
+            value={m.category}
+            onChange={(e) => {
+              const c = e.target.value;
+              // A category lives under one tab, so picking it moves the dish there too
+              setM((x) => ({ ...x, category: c, ...(homeTab[c] && tabs.includes(homeTab[c]) ? { tab: homeTab[c] } : {}) }));
+            }}
+          >{cats.map((c) => <option key={c}>{c}</option>)}</select>
         </Field>
         <Field label={hasGroups ? t('menu.basePrice') : t('menu.menuPrice')} hint={hasGroups ? t('menu.basePriceHint') : undefined}><NumInput value={m.price} onChange={(n) => set('price', n)} /></Field>
         <Field label={t('menu.description')} className="span-all"><input value={m.description ?? ''} onChange={(e) => set('description', e.target.value)} /></Field>

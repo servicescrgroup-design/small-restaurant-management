@@ -12,6 +12,8 @@ export interface Settings {
   /** Top-level menu sections on the POS (Food, Drinks, Desserts…), each holding categories */
   menuTabs: string[];
   menuCategories: string[];
+  /** Which menu tab each category sits under (set in Menu → Edit tabs & categories) */
+  categoryTabs?: Record<string, string>;
   inventoryCategories: string[];
   storageLocations: string[];
   paymentMethods: string[];
